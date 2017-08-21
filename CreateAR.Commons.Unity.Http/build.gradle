@@ -28,7 +28,7 @@ task upload(dependsOn:pack) {
                 // find nupkg in /bin
                 file('bin/Debug').eachFileRecurse(groovy.io.FileType.FILES) {
                         def path = it.path
-                        if (!path.endsWith("{projName}.nupkg")) {
+                        if (!path.endsWith(".nupkg")) {
                                 return;
                         }
 
