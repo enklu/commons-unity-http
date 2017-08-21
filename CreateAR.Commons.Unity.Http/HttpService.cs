@@ -201,11 +201,6 @@ namespace CreateAR.Commons.Unity.Http
                 response.NetworkSuccess = false;
                 response.NetworkError = request.error;
             }
-            else if (!Successful(request))
-            {
-                response.NetworkSuccess = false;
-                response.NetworkError = request.downloadHandler.text;
-            }
             else
             {
                 var bytes = request.downloadHandler.data;
@@ -213,8 +208,17 @@ namespace CreateAR.Commons.Unity.Http
                 {
                     object value;
                     _serializer.Deserialize(typeof(T), ref bytes, out value);
-                    response.Payload = (T) value;
-                    response.NetworkSuccess = true;
+                    response.Payload = (T)value;
+
+                    if (Successful(request))
+                    {
+                        response.NetworkSuccess = true;
+                    }
+                    else
+                    {
+                        response.NetworkSuccess = false;
+                        response.NetworkError = request.downloadHandler.text;
+                    }
                 }
                 catch (Exception exception)
                 {

@@ -4,14 +4,14 @@
     <TargetFramework>net35</TargetFramework>
     <AssemblyName>CreateAR.Commons.Unity.Http</AssemblyName>
     <RootNamespace>CreateAR.Commons.Unity.Http</RootNamespace>
-    <AssemblyVersion>0.4.0</AssemblyVersion>
-    <Version>0.4.0</Version>
+    <AssemblyVersion>0.4.1</AssemblyVersion>
+    <Version>0.4.1</Version>
     <Description>For working with HTTP services.</Description>
     <Copyright>Copyright © 2017 CreateAR</Copyright>
     <Authors>CreateAR</Authors>
     <IncludeSymbols>True</IncludeSymbols>
-    <PackageReleaseNotes>Added Put and Delete.</PackageReleaseNotes>
-    <FileVersion>0.4.0</FileVersion>
+    <PackageReleaseNotes>Status code may now lead to failure.</PackageReleaseNotes>
+    <FileVersion>0.4.1</FileVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CreateAR.Commons.Unity.Async" Version="0.1.0" />
