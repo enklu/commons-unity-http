@@ -27,10 +27,11 @@ namespace CreateAR.Commons.Unity.Http
         /// </summary>
         private readonly IBootstrapper _bootstrapper;
 
-        /// <summary>
-        /// UrlBuilder.
-        /// </summary>
+        /// <inheritdoc cref="IHttpService"/>
         public UrlBuilder UrlBuilder { get; }
+
+        /// <inheritdoc cref="IHttpService"/>
+        public List<Tuple<string, string>> Headers { get; }
 
         /// <summary>
         /// Creates an HttpService.
@@ -46,27 +47,36 @@ namespace CreateAR.Commons.Unity.Http
             _bootstrapper = bootstrapper;
 
             UrlBuilder = new UrlBuilder();
+            Headers = new List<Tuple<string, string>>();
         }
 
         /// <inheritdoc cref="IHttpService"/>
-        public IAsyncToken<HttpResponse<T>> Get<T>(
-            string url,
-            List<Tuple<string, string>> headers)
+        public IAsyncToken<HttpResponse<T>> Get<T>(string url)
         {
             return SendRequest<T>(
                 HttpVerb.Get,
                 url,
-                null,
-                headers);
+                null);
         }
 
         /// <inheritdoc cref="IHttpService"/>
         public IAsyncToken<HttpResponse<T>> Post<T>(
             string url,
-            object payload,
-            List<Tuple<string, string>> headers)
+            object payload)
         {
-            return SendRequest<T>(HttpVerb.Post, url, payload, headers);
+            return SendRequest<T>(HttpVerb.Post, url, payload);
+        }
+
+        /// <inheritdoc cref="IHttpService"/>
+        public IAsyncToken<HttpResponse<T>> Put<T>(string url, object payload)
+        {
+            return SendRequest<T>(HttpVerb.Put, url, payload);
+        }
+
+        /// <inheritdoc cref="IHttpService"/>
+        public IAsyncToken<HttpResponse<T>> Delete<T>(string url)
+        {
+            return SendRequest<T>(HttpVerb.Delete, url, null);
         }
 
         /// <summary>
@@ -76,14 +86,12 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="verb">The http verb to use.</param>
         /// <param name="url"></param>
         /// <param name="payload"></param>
-        /// <param name="headers"></param>
         /// <returns>An IAsyncScope to listen to.</returns>
         /// <exception cref="NullReferenceException"></exception>
         protected IAsyncToken<HttpResponse<T>> SendRequest<T>(
             HttpVerb verb,
             string url,
-            object payload,
-            List<Tuple<string, string>> headers)
+            object payload)
         {
             var scope = new AsyncToken<HttpResponse<T>>();
 
@@ -96,7 +104,7 @@ namespace CreateAR.Commons.Unity.Http
                 disposeUploadHandlerOnDispose = true
             };
             
-            ApplyHeaders(headers, request);
+            ApplyHeaders(Headers, request);
             ApplyPayload(payload, request);
             
             _bootstrapper.BootstrapCoroutine(Wait(request, scope));

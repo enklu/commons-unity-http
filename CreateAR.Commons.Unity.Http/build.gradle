@@ -3,9 +3,8 @@ def projName = 'CreateAR.Commons.Unity.Http'
 def csproj = "${projName}.csproj"
 def nupkg = "bin/Debug/${projName}.nupkg"
 
-task clean(type:Exec) {
-        executable csc
-        args csproj, '/target:Clean'
+task clean(type:Delete) {
+    delete 'bin'
 }
 
 task restore(type:Exec) {
@@ -13,7 +12,7 @@ task restore(type:Exec) {
         args 'restore', csproj
 }
 
-task build(type:Exec, dependsOn:restore) {
+task build(type:Exec, dependsOn:['restore', 'clean']) {
         executable csc
         args csproj, '/target:Clean;Rebuild'
 }
