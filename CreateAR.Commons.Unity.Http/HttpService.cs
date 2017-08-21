@@ -28,6 +28,11 @@ namespace CreateAR.Commons.Unity.Http
         private readonly IBootstrapper _bootstrapper;
 
         /// <summary>
+        /// UrlBuilder.
+        /// </summary>
+        public UrlBuilder UrlBuilder { get; }
+
+        /// <summary>
         /// Creates an HttpService.
         /// 
         /// TODO: This class enforces a json contenttype, but accepts any
@@ -39,6 +44,8 @@ namespace CreateAR.Commons.Unity.Http
         {
             _serializer = serializer;
             _bootstrapper = bootstrapper;
+
+            UrlBuilder = new UrlBuilder();
         }
 
         /// <inheritdoc cref="IHttpService"/>
