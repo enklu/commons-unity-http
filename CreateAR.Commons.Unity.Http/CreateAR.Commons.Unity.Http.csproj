@@ -4,21 +4,21 @@
     <TargetFramework>net35</TargetFramework>
     <AssemblyName>CreateAR.Commons.Unity.Http</AssemblyName>
     <RootNamespace>CreateAR.Commons.Unity.Http</RootNamespace>
-    <AssemblyVersion>0.5.0</AssemblyVersion>
-    <Version>0.5.0</Version>
+    <AssemblyVersion>0.5.1</AssemblyVersion>
+    <Version>0.5.1</Version>
     <Description>For working with HTTP services.</Description>
     <Copyright>Copyright © 2017 CreateAR</Copyright>
     <Authors>CreateAR</Authors>
     <IncludeSymbols>True</IncludeSymbols>
-    <PackageReleaseNotes>Removing JSON references.</PackageReleaseNotes>
-    <FileVersion>0.5.0</FileVersion>
+    <PackageReleaseNotes>Upgrading Async.</PackageReleaseNotes>
+    <FileVersion>0.5.1</FileVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugType>full</DebugType>
     <DebugSymbols>True</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="CreateAR.Commons.Unity.Async" Version="0.1.0" />
+    <PackageReference Include="CreateAR.Commons.Unity.Async" Version="0.4.0" />
     <PackageReference Include="CreateAR.Commons.Unity.DataStructures" Version="0.1.0" />
     <PackageReference Include="UnityEngine" Version="2017.1.0.3" />
   </ItemGroup>
