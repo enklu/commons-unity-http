@@ -89,12 +89,23 @@ namespace CreateAR.Commons.Unity.Http
                 ? "localhost"
                 : BaseUrl;
 
+            // trim trailing slashes
             baseUrl = baseUrl.Trim('/');
 
+            // trim protocol
             var index = baseUrl.IndexOf("://");
             if (-1 != index)
             {
                 baseUrl = baseUrl.Substring(index + 3);
+            }
+
+            // trim endpoints off
+            index = baseUrl.IndexOf("/");
+            while (-1 != index)
+            {
+                baseUrl = baseUrl.Substring(0, index);
+
+                index = baseUrl.IndexOf("/");
             }
 
             return baseUrl;

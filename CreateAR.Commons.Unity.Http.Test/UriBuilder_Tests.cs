@@ -22,7 +22,6 @@ namespace CreateAR.Commons.Unity.Http
             // basic stuff
             Assert.AreEqual("http://localhost:80/user/messages", _builder.Url(ENDPOINT));
             Assert.AreEqual("http://localhost:80/user/messages", _builder.Url("/" + ENDPOINT + "/"));
-
         }
 
         [Test]
@@ -44,6 +43,8 @@ namespace CreateAR.Commons.Unity.Http
             _builder.BaseUrl = "createar.co/";
             Assert.AreEqual("http://createar.co:80/user/messages", _builder.Url(ENDPOINT));
             _builder.BaseUrl = "https://createar.co/";
+            Assert.AreEqual("http://createar.co:80/user/messages", _builder.Url(ENDPOINT));
+            _builder.BaseUrl = "https://createar.co/endpoint";
             Assert.AreEqual("http://createar.co:80/user/messages", _builder.Url(ENDPOINT));
         }
 

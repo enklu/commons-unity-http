@@ -4,14 +4,14 @@
     <TargetFramework>net35</TargetFramework>
     <AssemblyName>CreateAR.Commons.Unity.Http</AssemblyName>
     <RootNamespace>CreateAR.Commons.Unity.Http</RootNamespace>
-    <AssemblyVersion>0.5.1</AssemblyVersion>
-    <Version>0.5.1</Version>
+    <AssemblyVersion>0.5.2</AssemblyVersion>
+    <Version>0.5.2</Version>
     <Description>For working with HTTP services.</Description>
     <Copyright>Copyright © 2017 CreateAR</Copyright>
     <Authors>CreateAR</Authors>
     <IncludeSymbols>True</IncludeSymbols>
-    <PackageReleaseNotes>Upgrading Async.</PackageReleaseNotes>
-    <FileVersion>0.5.1</FileVersion>
+    <PackageReleaseNotes>BaseURL chops off endpoints now.</PackageReleaseNotes>
+    <FileVersion>0.5.2</FileVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugType>full</DebugType>
