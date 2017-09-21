@@ -53,6 +53,15 @@ namespace CreateAR.Commons.Unity.Http
             object payload);
 
         /// <summary>
+        /// Sends a POST request to an endpoint.
+        /// </summary>
+        /// <typeparam name="T">The type to expect from the endpoint.</typeparam>
+        /// <param name="url">The URL to hit.</param>
+        /// <param name="payload">The resource to send to this endpoint.</param>
+        /// <returns>An IAsyncScope to listen to.</returns>
+        IAsyncToken<HttpResponse<T>> PostRaw<T>(string url, ref byte[] payload);
+
+        /// <summary>
         /// Sends a PUT request to an endpoint.
         /// </summary>
         /// <typeparam name="T">The type to expect from the endpoint.</typeparam>
@@ -63,6 +72,16 @@ namespace CreateAR.Commons.Unity.Http
         IAsyncToken<HttpResponse<T>> Put<T>(
             string url,
             object payload);
+
+        /// <summary>
+        /// Sends a PUT request to an endpoint.
+        /// </summary>
+        /// <typeparam name="T">The type to expect from the endpoint.</typeparam>
+        /// <param name="url">The URL to hit.</param>
+        /// <param name="payload">The resource to send to this endpoint.</param>
+        /// <returns>An IAsyncScope to listen to.</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        IAsyncToken<HttpResponse<T>> PutRaw<T>(string url, ref byte[] payload);
 
         /// <summary>
         /// Sends a DELETE request to an endpoint.

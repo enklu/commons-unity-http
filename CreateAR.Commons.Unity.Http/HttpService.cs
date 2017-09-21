@@ -13,9 +13,10 @@ namespace CreateAR.Commons.Unity.Http
     public class HttpService : IHttpService
     {
         /// <summary>
-        /// Specifies a json contenttype.
+        /// Specifies content types.
         /// </summary>
         private const string CONTENT_TYPE_JSON = "application/json";
+        private const string CONTENT_TYPE_OCTET_STREAM = "application/octet-stream";
 
         /// <summary>
         /// Serializer!
@@ -53,7 +54,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <inheritdoc cref="IHttpService"/>
         public IAsyncToken<HttpResponse<T>> Get<T>(string url)
         {
-            return SendRequest<T>(
+            return SendJsonRequest<T>(
                 HttpVerb.Get,
                 url,
                 null);
@@ -64,23 +65,35 @@ namespace CreateAR.Commons.Unity.Http
             string url,
             object payload)
         {
-            return SendRequest<T>(HttpVerb.Post, url, payload);
+            return SendJsonRequest<T>(HttpVerb.Post, url, payload);
+        }
+
+        /// <inheritdoc cref="IHttpService"/>
+        public IAsyncToken<HttpResponse<T>> PostRaw<T>(string url, ref byte[] payload)
+        {
+            return SendRawRequest<T>(HttpVerb.Post, url, ref payload);
         }
 
         /// <inheritdoc cref="IHttpService"/>
         public IAsyncToken<HttpResponse<T>> Put<T>(string url, object payload)
         {
-            return SendRequest<T>(HttpVerb.Put, url, payload);
+            return SendJsonRequest<T>(HttpVerb.Put, url, payload);
+        }
+
+        /// <inheritdoc cref="IHttpService"/>
+        public IAsyncToken<HttpResponse<T>> PutRaw<T>(string url, ref byte[] payload)
+        {
+            return SendRawRequest<T>(HttpVerb.Put, url, ref payload);
         }
 
         /// <inheritdoc cref="IHttpService"/>
         public IAsyncToken<HttpResponse<T>> Delete<T>(string url)
         {
-            return SendRequest<T>(HttpVerb.Delete, url, null);
+            return SendJsonRequest<T>(HttpVerb.Delete, url, null);
         }
 
         /// <summary>
-        /// Sends a request.
+        /// Sends a json request.
         /// </summary>
         /// <typeparam name="T">The type of response we expect.</typeparam>
         /// <param name="verb">The http verb to use.</param>
@@ -88,7 +101,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="payload"></param>
         /// <returns>An IAsyncScope to listen to.</returns>
         /// <exception cref="NullReferenceException"></exception>
-        protected IAsyncToken<HttpResponse<T>> SendRequest<T>(
+        protected IAsyncToken<HttpResponse<T>> SendJsonRequest<T>(
             HttpVerb verb,
             string url,
             object payload)
@@ -105,10 +118,43 @@ namespace CreateAR.Commons.Unity.Http
             };
             
             ApplyHeaders(Headers, request);
-            ApplyPayload(payload, request);
+            ApplyJsonPayload(payload, request);
             
             _bootstrapper.BootstrapCoroutine(Wait(request, scope));
             
+            return scope;
+        }
+
+        /// <summary>
+        /// Sends a json request.
+        /// </summary>
+        /// <typeparam name="T">The type of response we expect.</typeparam>
+        /// <param name="verb">The http verb to use.</param>
+        /// <param name="url"></param>
+        /// <param name="bytes"></param>
+        /// <returns>An IAsyncScope to listen to.</returns>
+        /// <exception cref="NullReferenceException"></exception>
+        protected IAsyncToken<HttpResponse<T>> SendRawRequest<T>(
+            HttpVerb verb,
+            string url,
+            ref byte[] bytes)
+        {
+            var scope = new AsyncToken<HttpResponse<T>>();
+
+            var request = new UnityWebRequest(
+                url,
+                verb.ToString().ToUpperInvariant())
+            {
+                downloadHandler = new DownloadHandlerBuffer(),
+                disposeDownloadHandlerOnDispose = true,
+                disposeUploadHandlerOnDispose = true
+            };
+
+            ApplyHeaders(Headers, request);
+            ApplyRawPayload(ref bytes, request);
+
+            _bootstrapper.BootstrapCoroutine(Wait(request, scope));
+
             return scope;
         }
 
@@ -134,11 +180,11 @@ namespace CreateAR.Commons.Unity.Http
         }
 
         /// <summary>
-        /// Applies payload to request.
+        /// Applies json payload to request.
         /// </summary>
         /// <param name="payload">The payload to add to the request.</param>
         /// <param name="request">The request.</param>
-        protected void ApplyPayload(object payload, UnityWebRequest request)
+        protected void ApplyJsonPayload(object payload, UnityWebRequest request)
         {
             if (payload == null)
             {
@@ -147,7 +193,7 @@ namespace CreateAR.Commons.Unity.Http
 
             byte[] payloadBytes;
 
-            // let serialization errors propogate
+            // let serialization errors bubble up
             _serializer.Serialize(payload, out payloadBytes);
 
             request.uploadHandler = new UploadHandlerRaw(payloadBytes)
@@ -157,6 +203,27 @@ namespace CreateAR.Commons.Unity.Http
 
             request.SetRequestHeader("Content-Type", CONTENT_TYPE_JSON);
             request.SetRequestHeader("Accept", CONTENT_TYPE_JSON);
+        }
+
+        /// <summary>
+        /// Applies payload to request.
+        /// </summary>
+        /// <param name="payload">The payload to add to the request.</param>
+        /// <param name="request">The request.</param>
+        protected void ApplyRawPayload(ref byte[] payload, UnityWebRequest request)
+        {
+            if (payload == null)
+            {
+                return;
+            }
+            
+            request.uploadHandler = new UploadHandlerRaw(payload)
+            {
+                contentType = CONTENT_TYPE_OCTET_STREAM
+            };
+
+            request.SetRequestHeader("Content-Type", CONTENT_TYPE_OCTET_STREAM);
+            request.SetRequestHeader("Accept", CONTENT_TYPE_OCTET_STREAM);
         }
 
         /// <summary>
