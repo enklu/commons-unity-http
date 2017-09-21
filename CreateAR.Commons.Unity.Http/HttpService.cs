@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using CreateAR.Commons.Unity.Async;
 using CreateAR.Commons.Unity.DataStructures;
+using UnityEngine;
 using UnityEngine.Networking;
 
 namespace CreateAR.Commons.Unity.Http
@@ -67,29 +68,35 @@ namespace CreateAR.Commons.Unity.Http
         {
             return SendJsonRequest<T>(HttpVerb.Post, url, payload);
         }
-
-        /// <inheritdoc cref="IHttpService"/>
-        public IAsyncToken<HttpResponse<T>> PostRaw<T>(string url, ref byte[] payload)
-        {
-            return SendRawRequest<T>(HttpVerb.Post, url, ref payload);
-        }
-
+        
         /// <inheritdoc cref="IHttpService"/>
         public IAsyncToken<HttpResponse<T>> Put<T>(string url, object payload)
         {
             return SendJsonRequest<T>(HttpVerb.Put, url, payload);
         }
-
-        /// <inheritdoc cref="IHttpService"/>
-        public IAsyncToken<HttpResponse<T>> PutRaw<T>(string url, ref byte[] payload)
-        {
-            return SendRawRequest<T>(HttpVerb.Put, url, ref payload);
-        }
-
+        
         /// <inheritdoc cref="IHttpService"/>
         public IAsyncToken<HttpResponse<T>> Delete<T>(string url)
         {
             return SendJsonRequest<T>(HttpVerb.Delete, url, null);
+        }
+
+        /// <inheritdoc cref="IHttpService"/>
+        public IAsyncToken<HttpResponse<T>> PostFile<T>(
+            string url,
+            IEnumerable<Tuple<string, string>> fields,
+            ref byte[] file)
+        {
+            return SendFile<T>(HttpVerb.Post, url, fields, ref file);
+        }
+
+        /// <inheritdoc cref="IHttpService"/>
+        public IAsyncToken<HttpResponse<T>> PutFile<T>(
+            string url,
+            IEnumerable<Tuple<string, string>> fields,
+            ref byte[] file)
+        {
+            return SendFile<T>(HttpVerb.Put, url, fields, ref file);
         }
 
         /// <summary>
@@ -97,8 +104,8 @@ namespace CreateAR.Commons.Unity.Http
         /// </summary>
         /// <typeparam name="T">The type of response we expect.</typeparam>
         /// <param name="verb">The http verb to use.</param>
-        /// <param name="url"></param>
-        /// <param name="payload"></param>
+        /// <param name="url">The url to send the request to.</param>
+        /// <param name="payload">The object that will be serialized into json.</param>
         /// <returns>An IAsyncScope to listen to.</returns>
         /// <exception cref="NullReferenceException"></exception>
         protected IAsyncToken<HttpResponse<T>> SendJsonRequest<T>(
@@ -126,38 +133,46 @@ namespace CreateAR.Commons.Unity.Http
         }
 
         /// <summary>
-        /// Sends a json request.
+        /// Sends a file!
         /// </summary>
         /// <typeparam name="T">The type of response we expect.</typeparam>
         /// <param name="verb">The http verb to use.</param>
-        /// <param name="url"></param>
-        /// <param name="bytes"></param>
-        /// <returns>An IAsyncScope to listen to.</returns>
-        /// <exception cref="NullReferenceException"></exception>
-        protected IAsyncToken<HttpResponse<T>> SendRawRequest<T>(
+        /// <param name="url">The url to send the request to.</param>
+        /// <param name="fields">Optional fields that will _precede_ the file.</param>
+        /// <param name="file">The file, which will be named "file".</param>
+        /// <returns></returns>
+        private IAsyncToken<HttpResponse<T>> SendFile<T>(
             HttpVerb verb,
             string url,
-            ref byte[] bytes)
+            IEnumerable<Tuple<string, string>> fields,
+            ref byte[] file)
         {
             var scope = new AsyncToken<HttpResponse<T>>();
 
-            var request = new UnityWebRequest(
-                url,
-                verb.ToString().ToUpperInvariant())
+            var form = new WWWForm();
+
+            foreach (var tuple in fields)
             {
-                downloadHandler = new DownloadHandlerBuffer(),
-                disposeDownloadHandlerOnDispose = true,
-                disposeUploadHandlerOnDispose = true
-            };
+                form.AddField(tuple.Item1, tuple.Item2);
+            }
+
+            form.AddBinaryData("file", file);
+
+            var request = UnityWebRequest.Post(
+                url,
+                form);
+            request.method = verb.ToString().ToUpperInvariant();
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.disposeDownloadHandlerOnDispose = true;
+            request.disposeUploadHandlerOnDispose = true;
 
             ApplyHeaders(Headers, request);
-            ApplyRawPayload(ref bytes, request);
-
+            
             _bootstrapper.BootstrapCoroutine(Wait(request, scope));
 
             return scope;
         }
-
+        
         /// <summary>
         /// Applies headers to request.
         /// </summary>
@@ -204,28 +219,7 @@ namespace CreateAR.Commons.Unity.Http
             request.SetRequestHeader("Content-Type", CONTENT_TYPE_JSON);
             request.SetRequestHeader("Accept", CONTENT_TYPE_JSON);
         }
-
-        /// <summary>
-        /// Applies payload to request.
-        /// </summary>
-        /// <param name="payload">The payload to add to the request.</param>
-        /// <param name="request">The request.</param>
-        protected void ApplyRawPayload(ref byte[] payload, UnityWebRequest request)
-        {
-            if (payload == null)
-            {
-                return;
-            }
-            
-            request.uploadHandler = new UploadHandlerRaw(payload)
-            {
-                contentType = CONTENT_TYPE_OCTET_STREAM
-            };
-
-            request.SetRequestHeader("Content-Type", CONTENT_TYPE_OCTET_STREAM);
-            request.SetRequestHeader("Accept", CONTENT_TYPE_OCTET_STREAM);
-        }
-
+        
         /// <summary>
         /// Waits on the request and resolves the scope.
         /// </summary>
