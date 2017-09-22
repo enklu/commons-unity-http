@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using CreateAR.Commons.Unity.DataStructures;
 
 namespace CreateAR.Commons.Unity.Http
@@ -59,6 +61,37 @@ namespace CreateAR.Commons.Unity.Http
                 FormatPort(),
                 FormatVersion(),
                 FormatEndpoint(endpoint));
+        }
+
+        /// <summary>
+        /// Parses url and fills out information.
+        /// </summary>
+        /// <param name="url">The URL to parse.</param>
+        public bool FromUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url))
+            {
+                return false;
+            }
+            
+            var regex = new Regex(@"^(\w+://)?([a-zA-Z0-9_\-\.]+)(:\d+)?(/[a-zA-Z0-9_\-]+)?/?$");
+            var match = regex.Match(url);
+            if (match.Success)
+            {
+                var groups = match.Groups;
+                Protocol = groups[1].Success ? groups[1].Value : "http";
+                BaseUrl = groups[2].Value;
+                int.TryParse(
+                    groups[3].Success
+                        ? groups[3].Value.Substring(1)
+                        : "80",
+                    out Port);
+                Version = groups[4].Success ? groups[4].Value : "";
+
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

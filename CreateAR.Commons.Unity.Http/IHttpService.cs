@@ -100,5 +100,12 @@ namespace CreateAR.Commons.Unity.Http
             string url,
             IEnumerable<Tuple<string, string>> fields,
             ref byte[] file);
+
+        /// <summary>
+        /// Downloads raw bytes.
+        /// </summary>
+        /// <param name="url">Url to download from.</param>
+        /// <returns></returns>
+        IAsyncToken<HttpResponse<byte[]>> Download(string url);
     }
 }

@@ -13,11 +13,16 @@ namespace CreateAR.Commons.Unity.Http
     /// </summary>
     public class HttpService : IHttpService
     {
+        protected enum SerializationType
+        {
+            Json,
+            Raw
+        }
+
         /// <summary>
         /// Specifies content types.
         /// </summary>
         private const string CONTENT_TYPE_JSON = "application/json";
-        private const string CONTENT_TYPE_OCTET_STREAM = "application/octet-stream";
 
         /// <summary>
         /// Serializer!
@@ -99,6 +104,23 @@ namespace CreateAR.Commons.Unity.Http
             return SendFile<T>(HttpVerb.Put, url, fields, ref file);
         }
 
+        /// <inheritdoc cref="IHttpService"/>
+        public IAsyncToken<HttpResponse<byte[]>> Download(string url)
+        {
+            var token = new AsyncToken<HttpResponse<byte[]>>();
+
+            var request = UnityWebRequest.Get(url);
+
+            ApplyHeaders(Headers, request);
+
+            _bootstrapper.BootstrapCoroutine(Wait(
+                request,
+                token,
+                SerializationType.Raw));
+
+            return token;
+        }
+
         /// <summary>
         /// Sends a json request.
         /// </summary>
@@ -106,14 +128,14 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="verb">The http verb to use.</param>
         /// <param name="url">The url to send the request to.</param>
         /// <param name="payload">The object that will be serialized into json.</param>
-        /// <returns>An IAsyncScope to listen to.</returns>
+        /// <returns>An IAsyncToken to listen to.</returns>
         /// <exception cref="NullReferenceException"></exception>
         protected IAsyncToken<HttpResponse<T>> SendJsonRequest<T>(
             HttpVerb verb,
             string url,
             object payload)
         {
-            var scope = new AsyncToken<HttpResponse<T>>();
+            var token = new AsyncToken<HttpResponse<T>>();
 
             var request = new UnityWebRequest(
                 url,
@@ -127,11 +149,11 @@ namespace CreateAR.Commons.Unity.Http
             ApplyHeaders(Headers, request);
             ApplyJsonPayload(payload, request);
             
-            _bootstrapper.BootstrapCoroutine(Wait(request, scope));
+            _bootstrapper.BootstrapCoroutine(Wait(request, token));
             
-            return scope;
+            return token;
         }
-
+        
         /// <summary>
         /// Sends a file!
         /// </summary>
@@ -147,7 +169,7 @@ namespace CreateAR.Commons.Unity.Http
             IEnumerable<Tuple<string, string>> fields,
             ref byte[] file)
         {
-            var scope = new AsyncToken<HttpResponse<T>>();
+            var token = new AsyncToken<HttpResponse<T>>();
 
             var form = new WWWForm();
 
@@ -168,9 +190,9 @@ namespace CreateAR.Commons.Unity.Http
 
             ApplyHeaders(Headers, request);
             
-            _bootstrapper.BootstrapCoroutine(Wait(request, scope));
+            _bootstrapper.BootstrapCoroutine(Wait(request, token));
 
-            return scope;
+            return token;
         }
         
         /// <summary>
@@ -219,17 +241,19 @@ namespace CreateAR.Commons.Unity.Http
             request.SetRequestHeader("Content-Type", CONTENT_TYPE_JSON);
             request.SetRequestHeader("Accept", CONTENT_TYPE_JSON);
         }
-        
+
         /// <summary>
-        /// Waits on the request and resolves the scope.
+        /// Waits on the request and resolves the token.
         /// </summary>
         /// <typeparam name="T">The type to deserialize the response to.</typeparam>
         /// <param name="request">The UnityWebRequest to send and wait on.</param>
-        /// <param name="scope">The scope to resolve.</param>
+        /// <param name="token">The token to resolve.</param>
+        /// <param name="serialization"></param>
         /// <returns>The coroutines IEnumerator.</returns>
         protected IEnumerator Wait<T>(
             UnityWebRequest request,
-            AsyncToken<HttpResponse<T>> scope)
+            AsyncToken<HttpResponse<T>> token,
+            SerializationType serialization = SerializationType.Json)
         {
             yield return request.Send();
 
@@ -239,12 +263,12 @@ namespace CreateAR.Commons.Unity.Http
                 StatusCode = request.responseCode
             };
             
-            ProcessResponse(request, response);
+            ProcessResponse(request, response, serialization);
 
             // must kill the request
             request.Dispose();
 
-            scope.Succeed(response);
+            token.Succeed(response);
         }
 
         /// <summary>
@@ -253,9 +277,11 @@ namespace CreateAR.Commons.Unity.Http
         /// <typeparam name="T">The type to expect the response payload to be.</typeparam>
         /// <param name="request">The request to inspect.</param>
         /// <param name="response">The response object.</param>
+        /// <param name="serialization">Describes how to serialize.</param>
         protected void ProcessResponse<T>(
             UnityWebRequest request,
-            HttpResponse<T> response)
+            HttpResponse<T> response,
+            SerializationType serialization)
         {
             if (request.isNetworkError)
             {
@@ -268,8 +294,21 @@ namespace CreateAR.Commons.Unity.Http
                 try
                 {
                     object value;
-                    _serializer.Deserialize(typeof(T), ref bytes, out value);
-                    response.Payload = (T)value;
+                    switch (serialization)
+                    {
+                        case SerializationType.Json:
+                        {
+                            _serializer.Deserialize(typeof(T), ref bytes, out value);
+                            break;
+                        }
+                        default:
+                        {
+                            value = bytes;
+                            break;
+                        }
+                    }
+                    
+                    response.Payload = (T) value;
 
                     if (Successful(request))
                     {
