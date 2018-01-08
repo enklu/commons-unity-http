@@ -1,24 +1,51 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using CreateAR.Commons.Unity.Async;
 using CreateAR.Commons.Unity.DataStructures;
+using CreateAR.Commons.Unity.Logging;
 
 namespace CreateAR.Commons.Unity.Http.Editor
 {
+    /// <summary>
+    /// Editor implementation of <c>IHttpService</c>.
+    /// </summary>
     public class EditorHttpService : IHttpService
     {
+        /// <summary>
+        /// How to deserialize.
+        /// </summary>
         protected enum SerializationType
         {
             Json,
             Raw
         }
 
+        /// <summary>
+        /// State passed along with the <c>HttpWebRequest</c> async API.
+        /// </summary>
         protected class HttpState
         {
+            /// <summary>
+            /// Url.
+            /// </summary>
+            public string Url;
+
+            /// <summary>
+            /// Request.
+            /// </summary>
             public HttpWebRequest Request;
+
+            /// <summary>
+            /// Callback.
+            /// </summary>
             public Action<object> Resolve;
+
+            /// <summary>
+            /// Serialization strategy.
+            /// </summary>
             public SerializationType Serialization;
         }
 
@@ -27,17 +54,34 @@ namespace CreateAR.Commons.Unity.Http.Editor
         /// </summary>
         private const string CONTENT_TYPE_JSON = "application/json";
 
+        /// <summary>
+        /// Serializer.
+        /// </summary>
         private readonly ISerializer _serializer;
 
-        public UrlBuilder UrlBuilder { get; }
+        /// <summary>
+        /// For moving actions to the main thread.
+        /// </summary>
+        private readonly List<Action> _synchronizedActions = new List<Action>();
 
-        public List<Tuple<string, string>> Headers { get; }
+        /// <inheritdoc cref="IHttpService"/>
+        public UrlBuilder UrlBuilder { get; private set; }
 
-        public EditorHttpService(ISerializer serializer)
+        /// <inheritdoc cref="IHttpService"/>
+        public List<Tuple<string, string>> Headers { get; private set; }
+
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        public EditorHttpService(
+            ISerializer serializer,
+            IBootstrapper bootstrapper)
         {
             _serializer = serializer;
+            bootstrapper.BootstrapCoroutine(RunActions());
 
             UrlBuilder = new UrlBuilder();
+            Headers = new List<Tuple<string, string>>();
         }
 
         /// <inheritdoc cref="IHttpService"/>
@@ -45,7 +89,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
         {
             return SendJsonRequest<T>(HttpVerb.Get, url, null);
         }
-        
+
         /// <inheritdoc cref="IHttpService"/>
         public IAsyncToken<HttpResponse<T>> Post<T>(
             string url,
@@ -66,31 +110,69 @@ namespace CreateAR.Commons.Unity.Http.Editor
             return SendJsonRequest<T>(HttpVerb.Delete, url, null);
         }
 
+        /// <inheritdoc cref="IHttpService"/>
         public IAsyncToken<HttpResponse<T>> PostFile<T>(string url, IEnumerable<Tuple<string, string>> fields, ref byte[] file)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
+        /// <inheritdoc cref="IHttpService"/>
         public IAsyncToken<HttpResponse<T>> PutFile<T>(string url, IEnumerable<Tuple<string, string>> fields, ref byte[] file)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
+        /// <inheritdoc cref="IHttpService"/>
         public IAsyncToken<HttpResponse<byte[]>> Download(string url)
         {
-            throw new System.NotImplementedException();
+            var token = new AsyncToken<HttpResponse<byte[]>>();
+
+            var request = (HttpWebRequest)WebRequest.Create(url);
+
+            ApplyHeaders(Headers, request);
+
+            request.BeginGetResponse(
+                Request_OnBeginGetResponse<byte[]>,
+                new HttpState
+                {
+                    Url = url,
+                    Request = request,
+                    Serialization = SerializationType.Raw,
+                    Resolve = response =>
+                    {
+                        var exception = response as Exception;
+                        if (exception != null)
+                        {
+                            token.Fail(exception);
+                        }
+                        else
+                        {
+                            token.Succeed((HttpResponse<byte[]>)response);
+                        }
+                    }
+                });
+
+            return token;
         }
 
+        /// <summary>
+        /// Sends a JSON request.
+        /// </summary>
+        /// <typeparam name="T">Type of response.</typeparam>
+        /// <param name="verb">HTTP verb.</param>
+        /// <param name="url">Complete endpoint url.</param>
+        /// <param name="payload">Object to send.</param>
+        /// <returns></returns>
         private IAsyncToken<HttpResponse<T>> SendJsonRequest<T>(
             HttpVerb verb,
             string url,
             object payload)
         {
             var token = new AsyncToken<HttpResponse<T>>();
-            var request = (HttpWebRequest) WebRequest.Create(url);
+            var request = (HttpWebRequest)WebRequest.Create(url);
             request.ContentType = CONTENT_TYPE_JSON;
             request.Method = verb.ToString().ToUpperInvariant();
-            
+
             ApplyHeaders(Headers, request);
             ApplyJsonPayload(payload, request);
 
@@ -98,57 +180,106 @@ namespace CreateAR.Commons.Unity.Http.Editor
                 Request_OnBeginGetResponse<T>,
                 new HttpState
                 {
+                    Url = url,
                     Request = request,
                     Serialization = SerializationType.Json,
-                    Resolve = response => token.Succeed((HttpResponse<T>) response)
+                    Resolve = response =>
+                    {
+                        var exception = response as Exception;
+                        if (exception != null)
+                        {
+                            token.Fail(exception);
+                        }
+                        else
+                        {
+                            token.Succeed((HttpResponse<T>)response);
+                        }
+                    }
                 });
 
             return token;
         }
 
+        /// <summary>
+        /// Called by the C# API _on a thread from a threadpool_, NOT the main
+        /// thread.
+        /// </summary>
+        /// <typeparam name="T">Type of response.</typeparam>
+        /// <param name="result">Result object.</param>
         private void Request_OnBeginGetResponse<T>(IAsyncResult result)
         {
-            var state = (HttpState) result.AsyncState;
-            var response = (HttpWebResponse) state.Request.EndGetResponse(result);
+            var state = (HttpState)result.AsyncState;
+
+            HttpWebResponse response;
+            try
+            {
+                response = (HttpWebResponse)state.Request.EndGetResponse(result);
+            }
+            catch (Exception exception)
+            {
+                Synchronize(() => state.Resolve(exception));
+
+                return;
+            }
 
             var httpResponse = new HttpResponse<T>
             {
                 Headers = FormatHeaders(response.Headers),
-                StatusCode = (long) response.StatusCode
+                StatusCode = (long)response.StatusCode
             };
 
             using (var stream = response.GetResponseStream())
             {
-                var len = (int) stream.Length;
-                var bytes = new byte[len];
-                stream.Read(bytes, 0, len);
+                if (null == stream)
+                {
+                    Synchronize(() => state.Resolve(new Exception("Null response.")));
+
+                    return;
+                }
+
+                // TODO: reuse buffers
+                var bytes = new byte[16384];
+                var index = 0;
+                var bytesRead = 0;
+
+                while ((bytesRead = stream.Read(bytes, index, bytes.Length - index)) > 0)
+                {
+                    index += bytesRead;
+
+                    if (index == bytes.Length)
+                    {
+                        var newBuffer = new byte[bytes.Length * 2];
+                        Array.Copy(bytes, 0, newBuffer, 0, index);
+                        bytes = newBuffer;
+                    }
+                }
 
                 object value = null;
                 switch (state.Serialization)
                 {
                     case SerializationType.Json:
-                    {
-                        try
                         {
-                            _serializer.Deserialize(typeof(T), ref bytes, out value);
+                            try
+                            {
+                                _serializer.Deserialize(typeof(T), ref bytes, out value);
+                            }
+                            catch (Exception exception)
+                            {
+                                httpResponse.NetworkSuccess = false;
+                                httpResponse.NetworkError = string.Format("Could not deserialize : {0}.", exception.Message);
+                            }
+                            break;
                         }
-                        catch (Exception exception)
-                        {
-                            httpResponse.NetworkSuccess = false;
-                            httpResponse.NetworkError = string.Format("Could not deserialize : {0}.", exception.Message);
-                        }
-                        break;
-                    }
                     default:
-                    {
-                        value = bytes;
-                        break;
-                    }
+                        {
+                            value = bytes;
+                            break;
+                        }
                 }
 
-                httpResponse.Payload = (T) value;
+                httpResponse.Payload = (T)value;
 
-                if (Successful((int) httpResponse.StatusCode))
+                if (Successful((int)httpResponse.StatusCode))
                 {
                     httpResponse.NetworkSuccess = true;
                 }
@@ -159,7 +290,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
                 }
             }
 
-            state.Resolve(httpResponse);
+            Synchronize(() => state.Resolve(httpResponse));
 
             response.Close();
         }
@@ -169,7 +300,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
         /// </summary>
         /// <param name="headers">Headers to add to request.</param>
         /// <param name="request">Request to add headers to.</param>
-        protected static void ApplyHeaders(
+        protected void ApplyHeaders(
             List<Tuple<string, string>> headers,
             HttpWebRequest request)
         {
@@ -181,11 +312,18 @@ namespace CreateAR.Commons.Unity.Http.Editor
             for (int i = 0, len = headers.Count; i < len; i++)
             {
                 var kv = headers[i];
-                request.Headers.Add(kv.Item1, kv.Item2);
+                if (!WebHeaderCollection.IsRestricted(kv.Item1))
+                {
+                    request.Headers.Add(kv.Item1, kv.Item2);
+                }
+                else
+                {
+                    Log.Warning(this, "Header [{0}] is restricted.", kv.Item1);
+                }
             }
 
-            request.Headers.Add("Content-Type", CONTENT_TYPE_JSON);
-            request.Headers.Add("Accept", CONTENT_TYPE_JSON);
+            request.ContentType = CONTENT_TYPE_JSON;
+            request.Accept = CONTENT_TYPE_JSON;
         }
 
         /// <summary>
@@ -210,6 +348,39 @@ namespace CreateAR.Commons.Unity.Http.Editor
             using (var stream = request.GetRequestStream())
             {
                 stream.Write(payloadBytes, 0, payloadBytes.Length);
+            }
+        }
+
+        /// <summary>
+        /// Adds an action to the sync queue.
+        /// </summary>
+        /// <param name="action">Action to add.</param>
+        private void Synchronize(Action action)
+        {
+            lock (_synchronizedActions)
+            {
+                _synchronizedActions.Add(action);
+            }
+        }
+
+        /// <summary>
+        /// Long-running coroutine to execute actions on main thread.
+        /// </summary>
+        /// <returns></returns>
+        private IEnumerator RunActions()
+        {
+            while (true)
+            {
+                lock (_synchronizedActions)
+                {
+                    for (int i = 0, len = _synchronizedActions.Count; i < len; i++)
+                    {
+                        _synchronizedActions[i]();
+                    }
+                    _synchronizedActions.Clear();
+                }
+
+                yield return null;
             }
         }
 
