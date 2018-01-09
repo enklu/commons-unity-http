@@ -15,6 +15,11 @@ namespace CreateAR.Commons.Unity.Http
         public T Payload;
 
         /// <summary>
+        /// Raw response.
+        /// </summary>
+        public byte[] Raw;
+
+        /// <summary>
         /// Headers.
         /// </summary>
         public List<Tuple<string, string>> Headers;

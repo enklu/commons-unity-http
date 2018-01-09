@@ -34,6 +34,11 @@ namespace CreateAR.Commons.Unity.Http
         /// </summary>
         private readonly IBootstrapper _bootstrapper;
 
+        /// <summary>
+        /// Requests.
+        /// </summary>
+        private readonly List<UnityWebRequest> _requestsOut = new List<UnityWebRequest>();
+
         /// <inheritdoc cref="IHttpService"/>
         public UrlBuilder UrlBuilder { get; }
 
@@ -58,12 +63,20 @@ namespace CreateAR.Commons.Unity.Http
         }
 
         /// <inheritdoc cref="IHttpService"/>
+        public void Abort()
+        {
+            foreach (var request in _requestsOut)
+            {
+                request.Abort();
+                request.Dispose();
+            }
+            _requestsOut.Clear();
+        }
+
+        /// <inheritdoc cref="IHttpService"/>
         public IAsyncToken<HttpResponse<T>> Get<T>(string url)
         {
-            return SendJsonRequest<T>(
-                HttpVerb.Get,
-                url,
-                null);
+            return SendJsonRequest<T>(HttpVerb.Get, url, null);
         }
 
         /// <inheritdoc cref="IHttpService"/>
@@ -110,6 +123,7 @@ namespace CreateAR.Commons.Unity.Http
             var token = new AsyncToken<HttpResponse<byte[]>>();
 
             var request = UnityWebRequest.Get(url);
+            _requestsOut.Add(request);
 
             ApplyHeaders(Headers, request);
 
@@ -267,6 +281,7 @@ namespace CreateAR.Commons.Unity.Http
 
             // must kill the request
             request.Dispose();
+            _requestsOut.Remove(request);
 
             token.Succeed(response);
         }
@@ -290,7 +305,7 @@ namespace CreateAR.Commons.Unity.Http
             }
             else
             {
-                var bytes = request.downloadHandler.data;
+                var bytes = response.Raw = request.downloadHandler.data;
                 try
                 {
                     object value;
@@ -346,7 +361,7 @@ namespace CreateAR.Commons.Unity.Http
         /// </summary>
         /// <param name="headers">The headers in a dictionary.</param>
         /// <returns>A list of CreateAR.Commons.Unity.DataStructures.Tuples that represent the headers.</returns>
-        private static List<Tuple<string, string>> FormatHeaders(Dictionary<string, string> headers)
+        private List<Tuple<string, string>> FormatHeaders(IDictionary<string, string> headers)
         {
             var tuples = new List<Tuple<string, string>>();
 
