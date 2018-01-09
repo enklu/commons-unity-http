@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
@@ -58,12 +57,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
         /// Serializer.
         /// </summary>
         private readonly ISerializer _serializer;
-
-        /// <summary>
-        /// For moving actions to the main thread.
-        /// </summary>
-        private readonly List<Action> _synchronizedActions = new List<Action>();
-
+        
         /// <inheritdoc cref="IHttpService"/>
         public UrlBuilder UrlBuilder { get; private set; }
 
@@ -73,15 +67,18 @@ namespace CreateAR.Commons.Unity.Http.Editor
         /// <summary>
         /// Constructor.
         /// </summary>
-        public EditorHttpService(
-            ISerializer serializer,
-            IBootstrapper bootstrapper)
+        public EditorHttpService(ISerializer serializer)
         {
             _serializer = serializer;
-            bootstrapper.BootstrapCoroutine(RunActions());
-
+            
             UrlBuilder = new UrlBuilder();
             Headers = new List<Tuple<string, string>>();
+        }
+
+        /// <inheritdoc cref="IHttpService"/>
+        public void Abort()
+        {
+            
         }
 
         /// <inheritdoc cref="IHttpService"/>
@@ -128,29 +125,13 @@ namespace CreateAR.Commons.Unity.Http.Editor
             var token = new AsyncToken<HttpResponse<byte[]>>();
 
             var request = (HttpWebRequest)WebRequest.Create(url);
-
+            
             ApplyHeaders(Headers, request);
-
-            request.BeginGetResponse(
-                Request_OnBeginGetResponse<byte[]>,
-                new HttpState
-                {
-                    Url = url,
-                    Request = request,
-                    Serialization = SerializationType.Raw,
-                    Resolve = response =>
-                    {
-                        var exception = response as Exception;
-                        if (exception != null)
-                        {
-                            token.Fail(exception);
-                        }
-                        else
-                        {
-                            token.Succeed((HttpResponse<byte[]>)response);
-                        }
-                    }
-                });
+            
+            ProcessResponse(
+                (HttpWebResponse) request.GetResponse(),
+                token,
+                SerializationType.Raw);
 
             return token;
         }
@@ -172,56 +153,36 @@ namespace CreateAR.Commons.Unity.Http.Editor
             var request = (HttpWebRequest)WebRequest.Create(url);
             request.ContentType = CONTENT_TYPE_JSON;
             request.Method = verb.ToString().ToUpperInvariant();
-
+            
             ApplyHeaders(Headers, request);
             ApplyJsonPayload(payload, request);
 
-            request.BeginGetResponse(
-                Request_OnBeginGetResponse<T>,
-                new HttpState
-                {
-                    Url = url,
-                    Request = request,
-                    Serialization = SerializationType.Json,
-                    Resolve = response =>
-                    {
-                        var exception = response as Exception;
-                        if (exception != null)
-                        {
-                            token.Fail(exception);
-                        }
-                        else
-                        {
-                            token.Succeed((HttpResponse<T>)response);
-                        }
-                    }
-                });
-
+            // block!
+            try
+            {
+                var response = (HttpWebResponse) request.GetResponse();
+                ProcessResponse(response, token, SerializationType.Json);
+            }
+            catch (Exception exception)
+            {
+                token.Fail(exception);
+            }
+            
             return token;
         }
 
         /// <summary>
-        /// Called by the C# API _on a thread from a threadpool_, NOT the main
-        /// thread.
+        /// Sycnhronously process response.
         /// </summary>
-        /// <typeparam name="T">Type of response.</typeparam>
-        /// <param name="result">Result object.</param>
-        private void Request_OnBeginGetResponse<T>(IAsyncResult result)
+        /// <typeparam name="T"></typeparam>
+        /// <param name="response">Response object.</param>
+        /// <param name="token">Token to resolve.</param>
+        /// <param name="serialization">Serialization.</param>
+        private void ProcessResponse<T>(
+            HttpWebResponse response,
+            AsyncToken<HttpResponse<T>> token,
+            SerializationType serialization)
         {
-            var state = (HttpState)result.AsyncState;
-
-            HttpWebResponse response;
-            try
-            {
-                response = (HttpWebResponse)state.Request.EndGetResponse(result);
-            }
-            catch (Exception exception)
-            {
-                Synchronize(() => state.Resolve(exception));
-
-                return;
-            }
-
             var httpResponse = new HttpResponse<T>
             {
                 Headers = FormatHeaders(response.Headers),
@@ -232,7 +193,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
             {
                 if (null == stream)
                 {
-                    Synchronize(() => state.Resolve(new Exception("Null response.")));
+                    token.Fail(new Exception("Null response."));
 
                     return;
                 }
@@ -240,7 +201,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
                 // TODO: reuse buffers
                 var bytes = new byte[16384];
                 var index = 0;
-                var bytesRead = 0;
+                int bytesRead;
 
                 while ((bytesRead = stream.Read(bytes, index, bytes.Length - index)) > 0)
                 {
@@ -255,7 +216,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
                 }
 
                 object value = null;
-                switch (state.Serialization)
+                switch (serialization)
                 {
                     case SerializationType.Json:
                         {
@@ -279,7 +240,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
 
                 httpResponse.Payload = (T)value;
 
-                if (Successful((int)httpResponse.StatusCode))
+                if (Successful((int) httpResponse.StatusCode))
                 {
                     httpResponse.NetworkSuccess = true;
                 }
@@ -290,9 +251,9 @@ namespace CreateAR.Commons.Unity.Http.Editor
                 }
             }
 
-            Synchronize(() => state.Resolve(httpResponse));
-
             response.Close();
+
+            token.Succeed(httpResponse);
         }
 
         /// <summary>
@@ -350,40 +311,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
                 stream.Write(payloadBytes, 0, payloadBytes.Length);
             }
         }
-
-        /// <summary>
-        /// Adds an action to the sync queue.
-        /// </summary>
-        /// <param name="action">Action to add.</param>
-        private void Synchronize(Action action)
-        {
-            lock (_synchronizedActions)
-            {
-                _synchronizedActions.Add(action);
-            }
-        }
-
-        /// <summary>
-        /// Long-running coroutine to execute actions on main thread.
-        /// </summary>
-        /// <returns></returns>
-        private IEnumerator RunActions()
-        {
-            while (true)
-            {
-                lock (_synchronizedActions)
-                {
-                    for (int i = 0, len = _synchronizedActions.Count; i < len; i++)
-                    {
-                        _synchronizedActions[i]();
-                    }
-                    _synchronizedActions.Clear();
-                }
-
-                yield return null;
-            }
-        }
-
+        
         /// <summary>
         /// Returns true iff status code indicates a success.
         /// </summary>

@@ -33,6 +33,11 @@ namespace CreateAR.Commons.Unity.Http
         List<Tuple<string, string>> Headers { get; }
 
         /// <summary>
+        /// Aborts all http requests.
+        /// </summary>
+        void Abort();
+
+        /// <summary>
         /// Sends a GET request to an endpoint.
         /// </summary>
         /// <typeparam name="T">The type to expect from the endpoint.</typeparam>
