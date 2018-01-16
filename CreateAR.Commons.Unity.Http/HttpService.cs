@@ -198,6 +198,7 @@ namespace CreateAR.Commons.Unity.Http
                 url,
                 form);
             request.method = verb.ToString().ToUpperInvariant();
+            request.useHttpContinue = false;
             request.downloadHandler = new DownloadHandlerBuffer();
             request.disposeDownloadHandlerOnDispose = true;
             request.disposeUploadHandlerOnDispose = true;
