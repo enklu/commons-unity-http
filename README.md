@@ -10,7 +10,7 @@ To make a request, `IHttpService` provides methods for several Http verbs (we do
 
 Here's an example of making a simple GET request:
 
-```
+```csharp
 _http
 	.Get<MyResponse>(url)
 	.OnSuccess(httpResponse => ...)
@@ -27,7 +27,7 @@ The request is considered a failure for any other status code. This means that `
 
 POST and PUT requests also allow a body:
 
-```
+```csharp
 _http
 	.Post<MyRespose>(url, new MyRequest(...))
 	.OnSuccess(...)
@@ -38,7 +38,7 @@ _http
 
 Authentication is usually done via headers. In our case, we use the JWT standard. One a user has obtained a token, the `IHttpService` can be configured globally:
 
-```
+```csharp
 _http.Headers.Add(Tuple.Create("Authorization", "Bearer " + token));
 
 // future requests will pass authentication
@@ -49,7 +49,7 @@ _http.Get(url)...
 
 Generally, applications will not want to hard code URLs to make Http calls. Protocols, environments, ports, etc-- all of these are subject to change. Furthermore, users don't want to write the same `.Trim` methods over and over, making sure `/` are in the right place. To provide for these needs, the `IHttpService` contains a `UrlBuilder` object which automatically cleans and formats urls.
 
-```
+```csharp
 var builder = _http.UrlBuilder;
 builder.BaseUrl = "my.baseurl.com";
 builder.Port = 10206;
@@ -59,7 +59,7 @@ builder.Replacements.Add(Tuple.Create("userId", userId));
 
 Once the builder is configured, you can use this object to build nice urls given only the endpoint.
 
-```
+```csharp
 _http
 	.Get<MyResponse>(_http.UrlBuilder.Url("/user/{userId}/mail"))
 	.OnSuccess(...)
