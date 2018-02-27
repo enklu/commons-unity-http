@@ -284,7 +284,14 @@ namespace CreateAR.Commons.Unity.Http
             request.Dispose();
             _requestsOut.Remove(request);
 
-            token.Succeed(response);
+            if (response.NetworkSuccess)
+            {
+                token.Succeed(response);
+            }
+            else
+            {
+                token.Fail(new Exception(response.NetworkError));
+            }
         }
 
         /// <summary>
