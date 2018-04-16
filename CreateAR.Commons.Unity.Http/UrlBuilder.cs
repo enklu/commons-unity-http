@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using CreateAR.Commons.Unity.DataStructures;
 
@@ -40,12 +39,23 @@ namespace CreateAR.Commons.Unity.Http
         public readonly List<Tuple<string, string>> Replacements = new List<Tuple<string, string>>();
 
         /// <summary>
+        /// A list of protocol replacements.
+        /// 
+        /// Eg. -
+        /// 
+        /// "assets://foo" -> "http://assets.google.com/foo"
+        /// </summary>
+        public readonly List<Tuple<string, string>> ProtocolReplacements = new List<Tuple<string, string>>();
+
+        /// <summary>
         /// Creates a url from the endpoint.
         /// </summary>
         /// <param name="endpoint">The endpoint to make into a URL.</param>
         /// <returns>The formatted URL.</returns>
         public string Url(string endpoint)
         {
+            endpoint = ReplaceProtocols(endpoint);
+
             if (string.IsNullOrEmpty(Version))
             {
                 return string.Format("{0}{1}:{2}/{3}",
@@ -92,6 +102,26 @@ namespace CreateAR.Commons.Unity.Http
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Replaces protocol, if necessary.
+        /// </summary>
+        /// <param name="endpoint">The endpoint.</param>
+        /// <returns></returns>
+        private string ReplaceProtocols(string endpoint)
+        {
+            for (int i = 0, len = ProtocolReplacements.Count; i < len; i++)
+            {
+                var replacement = ProtocolReplacements[i];
+                var pattern = replacement.Item1;
+                if (endpoint.StartsWith(pattern))
+                {
+                    return replacement.Item2 + endpoint.Substring(pattern.Length);
+                }
+            }
+
+            return endpoint;
         }
 
         /// <summary>
