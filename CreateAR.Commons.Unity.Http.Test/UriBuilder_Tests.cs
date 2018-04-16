@@ -144,5 +144,13 @@ namespace CreateAR.Commons.Unity.Http
             Assert.IsFalse(_builder.FromUrl("http://?localhost/:"));
             Assert.IsFalse(_builder.FromUrl("http://?localhost/v:"));
         }
+
+        [Test]
+        public void ProtocolReplacement()
+        {
+            _builder.ProtocolReplacements.Add(Tuple.Create("assets://", "http://localhost"));
+
+            Assert.AreEqual("http://localhost:80/foo", _builder.Url("foo"));
+        }
     }
 }
