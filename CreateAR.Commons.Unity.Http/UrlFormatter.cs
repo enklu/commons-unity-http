@@ -52,7 +52,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="endpoint">The endpoint to make into a URL.</param>
         /// <param name="replacements">Replacements to override.</param>
         /// <returns></returns>
-        public string Url(string endpoint, Dictionary<string, string> replacements)
+        public virtual string Url(string endpoint, Dictionary<string, string> replacements)
         {
             return Url(endpoint, Version, Port, Protocol, replacements);
         }
@@ -62,7 +62,7 @@ namespace CreateAR.Commons.Unity.Http
         /// </summary>
         /// <param name="endpoint">The endpoint to make into a URL.</param>
         /// <returns>The formatted URL.</returns>
-        public string Url(string endpoint)
+        public virtual string Url(string endpoint)
         {
             return Url(endpoint, Version, Port, Protocol);
         }
@@ -73,7 +73,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="endpoint">The endpoint to make into a URL.</param>
         /// <param name="version">A version taht overrides the default.</param>
         /// <returns>The formatted URL.</returns>
-        public string Url(string endpoint, string version)
+        public virtual string Url(string endpoint, string version)
         {
             return Url(endpoint, version, Port, Protocol);
         }
@@ -85,7 +85,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="version">A version taht overrides the default.</param>
         /// <param name="port">A port that overrides the default..</param>
         /// <returns>The formatted URL.</returns>
-        public string Url(string endpoint, string version, int port)
+        public virtual string Url(string endpoint, string version, int port)
         {
             return Url(endpoint, version, port, Protocol);
         }
@@ -99,7 +99,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="protocol">A protocol that overrides the default.</param>
         /// <param name="replacements">String replacements.</param>
         /// <returns>The formatted URL.</returns>
-        public string Url(
+        public virtual string Url(
             string endpoint,
             string version,
             int port,
@@ -127,7 +127,7 @@ namespace CreateAR.Commons.Unity.Http
         /// Parses url and fills out information.
         /// </summary>
         /// <param name="url">The URL to parse.</param>
-        public bool FromUrl(string url)
+        public virtual bool FromUrl(string url)
         {
             if (string.IsNullOrEmpty(url))
             {
