@@ -30,7 +30,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <summary>
         /// Header information.
         /// </summary>
-        List<Tuple<string, string>> Headers { get; }
+        Dictionary<string, string> Headers { get; }
 
         /// <summary>
         /// Aborts all http requests.

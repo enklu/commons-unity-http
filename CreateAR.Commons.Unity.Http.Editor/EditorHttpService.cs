@@ -34,20 +34,21 @@ namespace CreateAR.Commons.Unity.Http.Editor
         public UrlFormatterCollection Urls { get; private set; }
 
         /// <inheritdoc cref="IHttpService"/>
-        public List<Tuple<string, string>> Headers { get; private set; }
+        public Dictionary<string, string> Headers { get; private set; }
 
         /// <summary>
         /// Constructor.
         /// </summary>
         public EditorHttpService(
             ISerializer serializer,
-            IBootstrapper bootstrapper)
+            IBootstrapper bootstrapper,
+            UrlFormatterCollection urls)
         {
             _serializer = serializer;
             _bootstrapper = bootstrapper;
 
-            Urls= new UrlFormatterCollection();
-            Headers = new List<Tuple<string, string>>();
+            Urls = urls;
+            Headers = new Dictionary<string, string>();
         }
 
         /// <inheritdoc cref="IHttpService"/>
@@ -248,7 +249,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
 
             foreach (var pair in Headers)
             {
-                dictionary[pair.Item1] = pair.Item2;
+                dictionary[pair.Key] = pair.Value;
             }
 
             dictionary["Content-Type"] = CONTENT_TYPE_JSON;

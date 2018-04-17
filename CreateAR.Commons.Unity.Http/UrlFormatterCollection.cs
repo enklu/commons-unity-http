@@ -54,6 +54,23 @@ namespace CreateAR.Commons.Unity.Http
         }
 
         /// <summary>
+        /// Retrieves a formatter for a protocol, or null if no formatters are
+        /// explicitly bound to the protocol.
+        /// </summary>
+        /// <param name="protocol">The protocol.</param>
+        /// <returns></returns>
+        public UrlFormatter Formatter(string protocol)
+        {
+            UrlFormatter formatter;
+            if (_formatters.TryGetValue(FormatProtocol(protocol), out formatter))
+            {
+                return formatter;
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Generates a URL.
         /// </summary>
         /// <param name="endpoint">The endpoint.</param>

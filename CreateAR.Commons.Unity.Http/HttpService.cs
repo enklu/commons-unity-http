@@ -43,7 +43,7 @@ namespace CreateAR.Commons.Unity.Http
         public UrlFormatterCollection Urls{ get; }
 
         /// <inheritdoc cref="IHttpService"/>
-        public List<Tuple<string, string>> Headers { get; }
+        public Dictionary<string, string> Headers { get; }
 
         /// <summary>
         /// Creates an HttpService.
@@ -53,13 +53,17 @@ namespace CreateAR.Commons.Unity.Http
         /// </summary>
         /// <param name="serializer"></param>
         /// <param name="bootstrapper"></param>
-        public HttpService(ISerializer serializer, IBootstrapper bootstrapper)
+        /// <param name="urls"></param>
+        public HttpService(
+            ISerializer serializer,
+            IBootstrapper bootstrapper,
+            UrlFormatterCollection urls)
         {
             _serializer = serializer;
             _bootstrapper = bootstrapper;
 
-            Urls = new UrlFormatterCollection();
-            Headers = new List<Tuple<string, string>>();
+            Urls = urls;
+            Headers = new Dictionary<string, string>();
         }
 
         /// <inheritdoc cref="IHttpService"/>
@@ -216,7 +220,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="headers">Headers to add to request.</param>
         /// <param name="request">Request to add headers to.</param>
         protected static void ApplyHeaders(
-            List<Tuple<string, string>> headers,
+            Dictionary<string, string> headers,
             UnityWebRequest request)
         {
             if (headers == null)
@@ -224,10 +228,9 @@ namespace CreateAR.Commons.Unity.Http
                 return;
             }
 
-            for (int i = 0, len = headers.Count; i < len; i++)
+            foreach (var entry in headers)
             {
-                var kv = headers[i];
-                request.SetRequestHeader(kv.Item1, kv.Item2);
+                request.SetRequestHeader(entry.Key, entry.Value);
             }
         }
 
