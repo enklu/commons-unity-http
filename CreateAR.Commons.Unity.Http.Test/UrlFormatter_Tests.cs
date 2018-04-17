@@ -1,9 +1,10 @@
-﻿using NUnit.Framework;
+﻿using System.Collections.Generic;
+using NUnit.Framework;
 
 namespace CreateAR.Commons.Unity.Http
 {
     [TestFixture]
-    public class UrlBuilder_Tests
+    public class UrlFormatter_Tests
     {
         private const string ENDPOINT = "user/messages";
 
@@ -150,6 +151,35 @@ namespace CreateAR.Commons.Unity.Http
             Assert.AreEqual("http://localhost:80/v2/foo", _formatter.Url("foo", "v2"));
             Assert.AreEqual("http://localhost:8080/v2/foo", _formatter.Url("foo", "v2", 8080));
             Assert.AreEqual("https://localhost:8080/v2/foo", _formatter.Url("foo", "v2", 8080, "https"));
+        }
+
+        [Test]
+        public void ParameterReplacements()
+        {
+            Assert.AreEqual(
+                "http://localhost:80/myUser/myResource",
+                _formatter.Url(
+                    "{userId}/{resourceId}",
+                    new Dictionary<string, string>
+                    {
+                        { "userId", "myUser" },
+                        { "resourceId", "myResource" }
+                    }));
+        }
+
+        [Test]
+        public void ParameterReplacementPriority()
+        {
+            _formatter.Replacements["foo"] = "bar";
+
+            Assert.AreEqual(
+                "http://localhost:80/fizz",
+                _formatter.Url(
+                    "{foo}",
+                    new Dictionary<string, string>
+                    {
+                        { "foo", "fizz" }
+                    }));
         }
     }
 }

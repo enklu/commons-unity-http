@@ -47,6 +47,17 @@ namespace CreateAR.Commons.Unity.Http
         }
 
         /// <summary>
+        /// Replacements.
+        /// </summary>
+        /// <param name="endpoint">The endpoint to make into a URL.</param>
+        /// <param name="replacements">Replacements to override.</param>
+        /// <returns></returns>
+        public string Url(string endpoint, Dictionary<string, string> replacements)
+        {
+            return Url(endpoint, Version, Port, Protocol, replacements);
+        }
+
+        /// <summary>
         /// Creates a url from the endpoint.
         /// </summary>
         /// <param name="endpoint">The endpoint to make into a URL.</param>
@@ -78,7 +89,7 @@ namespace CreateAR.Commons.Unity.Http
         {
             return Url(endpoint, version, port, Protocol);
         }
-
+        
         /// <summary>
         /// Creates a url from the endpoint.
         /// </summary>
@@ -86,8 +97,14 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="version">A version that overrides the default.</param>
         /// <param name="port">A port that overrides the default.</param>
         /// <param name="protocol">A protocol that overrides the default.</param>
+        /// <param name="replacements">String replacements.</param>
         /// <returns>The formatted URL.</returns>
-        public string Url(string endpoint, string version, int port, string protocol)
+        public string Url(
+            string endpoint,
+            string version,
+            int port,
+            string protocol,
+            Dictionary<string, string> replacements = null)
         {
             if (string.IsNullOrEmpty(version))
             {
@@ -95,7 +112,7 @@ namespace CreateAR.Commons.Unity.Http
                     FormatProtocol(protocol),
                     FormatBaseUrl(),
                     FormatPort(port),
-                    FormatEndpoint(endpoint));
+                    FormatEndpoint(endpoint, replacements));
             }
 
             return string.Format("{0}{1}:{2}/{3}/{4}",
@@ -103,7 +120,7 @@ namespace CreateAR.Commons.Unity.Http
                 FormatBaseUrl(),
                 FormatPort(port),
                 FormatVersion(version),
-                FormatEndpoint(endpoint));
+                FormatEndpoint(endpoint, replacements));
         }
 
         /// <summary>
@@ -211,8 +228,9 @@ namespace CreateAR.Commons.Unity.Http
         /// Correctly formats the endpoint.
         /// </summary>
         /// <param name="endpoint">The endpoint.</param>
+        /// <param name="replacements">String replacements.</param>
         /// <returns></returns>
-        private string FormatEndpoint(string endpoint)
+        private string FormatEndpoint(string endpoint, Dictionary<string, string> replacements)
         {
             if (string.IsNullOrEmpty(endpoint))
             {
@@ -221,8 +239,26 @@ namespace CreateAR.Commons.Unity.Http
 
             endpoint = endpoint.Trim('/');
 
+            if (null != replacements)
+            {
+                endpoint = Replace(endpoint, replacements);
+            }
+
             // replacements
-            foreach (var replacement in Replacements)
+            endpoint = Replace(endpoint, Replacements);
+
+            return endpoint;
+        }
+
+        /// <summary>
+        /// Performs string replacement.
+        /// </summary>
+        /// <param name="endpoint">The endpoint.</param>
+        /// <param name="replacements">Replacements.</param>
+        /// <returns></returns>
+        private string Replace(string endpoint, Dictionary<string, string> replacements)
+        {
+            foreach (var replacement in replacements)
             {
                 endpoint = endpoint.Replace(
                     "{" + replacement.Key + "}",
