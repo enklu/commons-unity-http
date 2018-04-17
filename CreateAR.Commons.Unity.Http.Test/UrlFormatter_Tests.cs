@@ -94,10 +94,22 @@ namespace CreateAR.Commons.Unity.Http
         {
             Assert.IsTrue(_formatter.FromUrl("http://ec2-34-213-184-152.us-west-2.compute.amazonaws.com:1234/v1"));
 
-            Assert.AreEqual("ec2-34-213-184-152.us-west-2.compute.amazonaws.com", "ec2-34-213-184-152.us-west-2.compute.amazonaws.com");
+            Assert.AreEqual("ec2-34-213-184-152.us-west-2.compute.amazonaws.com", _formatter.BaseUrl);
             Assert.AreEqual("http://", _formatter.Protocol);
             Assert.AreEqual(1234, _formatter.Port);
             Assert.AreEqual("/v1", _formatter.Version);
+        }
+        
+        [Test]
+        public void FromEc2Long()
+        {
+            Assert.IsTrue(_formatter.FromUrl("https://s3-us-west-2.amazonaws.com/axatmtcyltmxltqzltmw.assets.bundles/"));
+
+            Assert.AreEqual("s3-us-west-2.amazonaws.com", _formatter.BaseUrl);
+            Assert.AreEqual("https://", _formatter.Protocol);
+            Assert.AreEqual(80, _formatter.Port);
+            Assert.AreEqual("", _formatter.Version);
+            Assert.AreEqual("axatmtcyltmxltqzltmw.assets.bundles", _formatter.PostHostname);
         }
 
         [Test]
@@ -128,7 +140,7 @@ namespace CreateAR.Commons.Unity.Http
             Assert.IsTrue(_formatter.FromUrl("ec2-34-213-184-152.us-west-2.compute.amazonaws.com"));
 
             Assert.AreEqual("ec2-34-213-184-152.us-west-2.compute.amazonaws.com", "ec2-34-213-184-152.us-west-2.compute.amazonaws.com");
-            Assert.AreEqual("http", _formatter.Protocol);
+            Assert.AreEqual("https", _formatter.Protocol);
             Assert.AreEqual(80, _formatter.Port);
             Assert.AreEqual("", _formatter.Version);
         }
@@ -136,13 +148,25 @@ namespace CreateAR.Commons.Unity.Http
         [Test]
         public void FromFailed()
         {
-            Assert.IsFalse(_formatter.FromUrl("http//localhost"));
             Assert.IsFalse(_formatter.FromUrl("http://?localhost"));
             Assert.IsFalse(_formatter.FromUrl("http://localhost:d"));
             Assert.IsFalse(_formatter.FromUrl("http://?localhost:/"));
             Assert.IsFalse(_formatter.FromUrl("http://?localhost:"));
             Assert.IsFalse(_formatter.FromUrl("http://?localhost/:"));
             Assert.IsFalse(_formatter.FromUrl("http://?localhost/v:"));
+        }
+
+        [Test]
+        public void EndToEnd()
+        {
+            Assert.IsTrue(_formatter.FromUrl("https://s3-us-west-2.amazonaws.com/axatmtcyltmxltqzltmw.assets.bundles/"));
+
+            _formatter.Version = "v7.1";
+            _formatter.Port = 2001;
+
+            Assert.AreEqual(
+                "https://s3-us-west-2.amazonaws.com:2001/axatmtcyltmxltqzltmw.assets.bundles/v7.1/12345",
+                _formatter.Url("12345"));
         }
 
         [Test]

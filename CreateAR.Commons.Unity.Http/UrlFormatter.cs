@@ -30,6 +30,11 @@ namespace CreateAR.Commons.Unity.Http
         public string Version = "";
 
         /// <summary>
+        /// Everything after the port number, if anything.
+        /// </summary>
+        public string PostHostname = "";
+
+        /// <summary>
         /// A set of replacements. For each (A, B), we replace "{A}" with "B".
         /// 
         /// Eg. -
@@ -108,10 +113,31 @@ namespace CreateAR.Commons.Unity.Http
         {
             if (string.IsNullOrEmpty(version))
             {
+                if (!string.IsNullOrEmpty(PostHostname))
+                {
+                    return string.Format("{0}{1}:{2}/{3}/{4}",
+                        FormatProtocol(protocol),
+                        FormatBaseUrl(),
+                        FormatPort(port),
+                        FormatPostHostname(PostHostname),
+                        FormatEndpoint(endpoint, replacements));
+                }
+
                 return string.Format("{0}{1}:{2}/{3}",
                     FormatProtocol(protocol),
                     FormatBaseUrl(),
                     FormatPort(port),
+                    FormatEndpoint(endpoint, replacements));
+            }
+
+            if (!string.IsNullOrEmpty(PostHostname))
+            {
+                return string.Format("{0}{1}:{2}/{3}/{4}/{5}",
+                    FormatProtocol(protocol),
+                    FormatBaseUrl(),
+                    FormatPort(port),
+                    FormatPostHostname(PostHostname),
+                    FormatVersion(version),
                     FormatEndpoint(endpoint, replacements));
             }
 
@@ -134,12 +160,12 @@ namespace CreateAR.Commons.Unity.Http
                 return false;
             }
             
-            var regex = new Regex(@"^(\w+://)?([a-zA-Z0-9_\-\.]+)(:\d+)?(/[a-zA-Z0-9_\-]+)?/?$");
+            var regex = new Regex(@"^(\w+://)?([a-zA-Z0-9_\-\.]+)(:\d+)?(/v[0-9_\.\-]+/?)?(/[a-zA-Z0-9-\._~/]+)?$");
             var match = regex.Match(url);
             if (match.Success)
             {
                 var groups = match.Groups;
-                Protocol = groups[1].Success ? groups[1].Value : "http";
+                Protocol = groups[1].Success ? groups[1].Value : "https";
                 BaseUrl = groups[2].Value;
                 int.TryParse(
                     groups[3].Success
@@ -147,6 +173,7 @@ namespace CreateAR.Commons.Unity.Http
                         : "80",
                     out Port);
                 Version = groups[4].Success ? groups[4].Value : "";
+                PostHostname = groups[5].Success ? groups[5].Value.Trim('/') : "";
 
                 return true;
             }
@@ -248,6 +275,21 @@ namespace CreateAR.Commons.Unity.Http
             endpoint = Replace(endpoint, Replacements);
 
             return endpoint;
+        }
+
+        /// <summary>
+        /// Formats portion of URL.
+        /// </summary>
+        /// <param name="postHostname">The portion after the hostname.</param>
+        /// <returns></returns>
+        private string FormatPostHostname(string postHostname)
+        {
+            if (string.IsNullOrEmpty(postHostname))
+            {
+                return string.Empty;
+            }
+
+            return postHostname.Trim('/');
         }
 
         /// <summary>
