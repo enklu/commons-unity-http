@@ -25,7 +25,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <summary>
         /// Object for building Urls.
         /// </summary>
-        UrlBuilder UrlBuilder { get; }
+        UrlFormatter UrlFormatter { get; }
 
         /// <summary>
         /// Header information.

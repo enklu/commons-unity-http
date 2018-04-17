@@ -31,7 +31,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
         private readonly IBootstrapper _bootstrapper;
 
         /// <inheritdoc cref="IHttpService"/>
-        public UrlBuilder UrlBuilder { get; private set; }
+        public UrlFormatter UrlFormatter { get; private set; }
 
         /// <inheritdoc cref="IHttpService"/>
         public List<Tuple<string, string>> Headers { get; private set; }
@@ -46,7 +46,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
             _serializer = serializer;
             _bootstrapper = bootstrapper;
 
-            UrlBuilder = new UrlBuilder();
+            UrlFormatter = new UrlFormatter();
             Headers = new List<Tuple<string, string>>();
         }
 

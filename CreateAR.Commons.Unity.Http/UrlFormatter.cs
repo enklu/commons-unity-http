@@ -1,13 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using CreateAR.Commons.Unity.DataStructures;
 
 namespace CreateAR.Commons.Unity.Http
 {
     /// <summary>
     /// A utility object for building URLs.
     /// </summary>
-    public class UrlBuilder
+    public class UrlFormatter
     {
         /// <summary>
         /// Gets and sets the Base URL.
@@ -30,22 +30,21 @@ namespace CreateAR.Commons.Unity.Http
         public string Version = "";
 
         /// <summary>
-        /// A list of replacements. For each (A, B), we replace "{A}" with "B".
+        /// A set of replacements. For each (A, B), we replace "{A}" with "B".
         /// 
         /// Eg. -
         /// 
         /// baseUrl.Url("/users/{userId}");
         /// </summary>
-        public readonly List<Tuple<string, string>> Replacements = new List<Tuple<string, string>>();
+        public Dictionary<string, string> Replacements { get; private set; }
 
         /// <summary>
-        /// A list of protocol replacements.
-        /// 
-        /// Eg. -
-        /// 
-        /// "assets://foo" -> "http://assets.google.com/foo"
+        /// Constructor.
         /// </summary>
-        public readonly List<Tuple<string, string>> ProtocolReplacements = new List<Tuple<string, string>>();
+        public UrlFormatter()
+        {
+            Replacements = new Dictionary<string, string>();
+        }
 
         /// <summary>
         /// Creates a url from the endpoint.
@@ -54,22 +53,56 @@ namespace CreateAR.Commons.Unity.Http
         /// <returns>The formatted URL.</returns>
         public string Url(string endpoint)
         {
-            endpoint = ReplaceProtocols(endpoint);
+            return Url(endpoint, Version, Port, Protocol);
+        }
 
-            if (string.IsNullOrEmpty(Version))
+        /// <summary>
+        /// Creates a url from the endpoint.
+        /// </summary>
+        /// <param name="endpoint">The endpoint to make into a URL.</param>
+        /// <param name="version">A version taht overrides the default.</param>
+        /// <returns>The formatted URL.</returns>
+        public string Url(string endpoint, string version)
+        {
+            return Url(endpoint, version, Port, Protocol);
+        }
+
+        /// <summary>
+        /// Creates a url from the endpoint.
+        /// </summary>
+        /// <param name="endpoint">The endpoint to make into a URL.</param>
+        /// <param name="version">A version taht overrides the default.</param>
+        /// <param name="port">A port that overrides the default..</param>
+        /// <returns>The formatted URL.</returns>
+        public string Url(string endpoint, string version, int port)
+        {
+            return Url(endpoint, version, port, Protocol);
+        }
+
+        /// <summary>
+        /// Creates a url from the endpoint.
+        /// </summary>
+        /// <param name="endpoint">The endpoint to make into a URL.</param>
+        /// <param name="version">A version that overrides the default.</param>
+        /// <param name="port">A port that overrides the default.</param>
+        /// <param name="protocol">A protocol that overrides the default.</param>
+        /// <returns>The formatted URL.</returns>
+        public string Url(string endpoint, string version, int port, string protocol)
+        {
+            if (string.IsNullOrEmpty(version))
             {
                 return string.Format("{0}{1}:{2}/{3}",
-                    FormatProtocol(),
+                    FormatProtocol(protocol),
                     FormatBaseUrl(),
-                    FormatPort(),
+                    FormatPort(port),
                     FormatEndpoint(endpoint));
             }
 
             return string.Format("{0}{1}:{2}/{3}/{4}",
-                FormatProtocol(),
+                FormatProtocol(protocol),
                 FormatBaseUrl(),
-                FormatPort(),
-                FormatVersion(),
+                FormatPort(port),
+                FormatVersion(version),
                 FormatEndpoint(endpoint));
         }
 
@@ -103,36 +136,16 @@ namespace CreateAR.Commons.Unity.Http
 
             return false;
         }
-
-        /// <summary>
-        /// Replaces protocol, if necessary.
-        /// </summary>
-        /// <param name="endpoint">The endpoint.</param>
-        /// <returns></returns>
-        private string ReplaceProtocols(string endpoint)
-        {
-            for (int i = 0, len = ProtocolReplacements.Count; i < len; i++)
-            {
-                var replacement = ProtocolReplacements[i];
-                var pattern = replacement.Item1;
-                if (endpoint.StartsWith(pattern))
-                {
-                    return replacement.Item2 + endpoint.Substring(pattern.Length);
-                }
-            }
-
-            return endpoint;
-        }
-
+        
         /// <summary>
         /// Correctly formats a protocol.
         /// </summary>
         /// <returns></returns>
-        private string FormatProtocol()
+        private string FormatProtocol(string protocol)
         {
-            var protocol = string.IsNullOrEmpty(Protocol)
+            protocol = string.IsNullOrEmpty(protocol)
                 ? "http://"
-                : Protocol;
+                : protocol;
 
             if (!protocol.EndsWith("://"))
             {
@@ -156,19 +169,19 @@ namespace CreateAR.Commons.Unity.Http
             baseUrl = baseUrl.Trim('/');
 
             // trim protocol
-            var index = baseUrl.IndexOf("://");
+            var index = baseUrl.IndexOf("://", StringComparison.Ordinal);
             if (-1 != index)
             {
                 baseUrl = baseUrl.Substring(index + 3);
             }
 
             // trim endpoints off
-            index = baseUrl.IndexOf("/");
+            index = baseUrl.IndexOf("/", StringComparison.Ordinal);
             while (-1 != index)
             {
                 baseUrl = baseUrl.Substring(0, index);
 
-                index = baseUrl.IndexOf("/");
+                index = baseUrl.IndexOf("/", StringComparison.Ordinal);
             }
 
             return baseUrl;
@@ -178,10 +191,10 @@ namespace CreateAR.Commons.Unity.Http
         /// Correctly formats the port.
         /// </summary>
         /// <returns></returns>
-        private int FormatPort()
+        private int FormatPort(int port)
         {
-            return Port > 0
-                ? Port
+            return port > 0
+                ? port
                 : 80;
         }
 
@@ -189,9 +202,9 @@ namespace CreateAR.Commons.Unity.Http
         /// Correctly formats the version.
         /// </summary>
         /// <returns></returns>
-        private string FormatVersion()
+        private string FormatVersion(string version)
         {
-            return Version.Trim('/');
+            return version.Trim('/');
         }
 
         /// <summary>
@@ -209,13 +222,11 @@ namespace CreateAR.Commons.Unity.Http
             endpoint = endpoint.Trim('/');
 
             // replacements
-            for (int i = 0, len = Replacements.Count; i < len; i++)
+            foreach (var replacement in Replacements)
             {
-                var replacement = Replacements[i];
-
                 endpoint = endpoint.Replace(
-                    "{" + replacement.Item1 + "}",
-                    replacement.Item2);
+                    "{" + replacement.Key + "}",
+                    replacement.Value);
             }
 
             return endpoint;
