@@ -23,9 +23,9 @@ namespace CreateAR.Commons.Unity.Http
     public interface IHttpService
     {
         /// <summary>
-        /// Object for building Urls.
+        /// Objects for building Urls.
         /// </summary>
-        UrlFormatter UrlFormatter { get; }
+        UrlFormatterCollection Urls { get; }
 
         /// <summary>
         /// Header information.

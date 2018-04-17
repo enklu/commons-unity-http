@@ -40,7 +40,7 @@ namespace CreateAR.Commons.Unity.Http
         private readonly List<UnityWebRequest> _requestsOut = new List<UnityWebRequest>();
 
         /// <inheritdoc cref="IHttpService"/>
-        public UrlFormatter UrlFormatter { get; }
+        public UrlFormatterCollection Urls{ get; }
 
         /// <inheritdoc cref="IHttpService"/>
         public List<Tuple<string, string>> Headers { get; }
@@ -58,7 +58,7 @@ namespace CreateAR.Commons.Unity.Http
             _serializer = serializer;
             _bootstrapper = bootstrapper;
 
-            UrlFormatter = new UrlFormatter();
+            Urls = new UrlFormatterCollection();
             Headers = new List<Tuple<string, string>>();
         }
 
