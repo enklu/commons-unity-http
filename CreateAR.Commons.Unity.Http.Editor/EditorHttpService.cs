@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using CreateAR.Commons.Unity.Async;
 using CreateAR.Commons.Unity.DataStructures;
-using CreateAR.Commons.Unity.Logging;
 using UnityEngine;
 
 namespace CreateAR.Commons.Unity.Http.Editor
@@ -30,11 +29,14 @@ namespace CreateAR.Commons.Unity.Http.Editor
         /// </summary>
         private readonly IBootstrapper _bootstrapper;
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public UrlFormatterCollection Urls { get; private set; }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public Dictionary<string, string> Headers { get; private set; }
+
+        /// <inheritdoc />
+        public event Action<string, string, Dictionary<string, string>, object> OnRequest;
 
         /// <summary>
         /// Constructor.
@@ -51,19 +53,19 @@ namespace CreateAR.Commons.Unity.Http.Editor
             Headers = new Dictionary<string, string>();
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public void Abort()
         {
 
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> Get<T>(string url)
         {
             return SendRequest<T>(HttpVerb.Get, url, null);
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> Post<T>(
             string url,
             object payload)
@@ -71,31 +73,31 @@ namespace CreateAR.Commons.Unity.Http.Editor
             return SendRequest<T>(HttpVerb.Post, url, payload);
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> Put<T>(string url, object payload)
         {
             return SendRequest<T>(HttpVerb.Put, url, payload);
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> Delete<T>(string url)
         {
             return SendRequest<T>(HttpVerb.Delete, url, null);
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> PostFile<T>(string url, IEnumerable<Tuple<string, string>> fields, ref byte[] file)
         {
             throw new NotImplementedException();
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> PutFile<T>(string url, IEnumerable<Tuple<string, string>> fields, ref byte[] file)
         {
             throw new NotImplementedException();
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<byte[]>> Download(string url)
         {
             return SendRequest<byte[]>(
@@ -117,10 +119,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
             string url,
             object payload)
         {
-            Log.Info(this,
-                "{0} {1}",
-                verb.ToString().ToUpperInvariant(),
-                url);
+            Log(verb.ToString(), url, payload);
 
             var token = new AsyncToken<HttpResponse<T>>();
 
@@ -221,14 +220,13 @@ namespace CreateAR.Commons.Unity.Http.Editor
                 var substrings = status.Split(' ');
                 if (substrings.Length < 3)
                 {
-                    Log.Warning(this, "Invalid response status: {0}.", status);
+                    return 0;
                 }
                 else
                 {
                     int returnValue;
                     if (!int.TryParse(substrings[1], out returnValue))
                     {
-                        Log.Error("Invalid response code: {0}.", substrings[1]);
                         return 0;
                     }
 
@@ -267,6 +265,20 @@ namespace CreateAR.Commons.Unity.Http.Editor
         {
             // any 200 is a success
             return statusCode >= 200 && statusCode < 300;
+        }
+
+        /// <summary>
+        /// Outputs a log, if necessary.
+        /// </summary>
+        /// <param name="verb">The verb.</param>
+        /// <param name="uri">The uri.</param>
+        /// <param name="payload">The payload.</param>
+        private void Log(string verb, string uri, object payload = null)
+        {
+            if (null != OnRequest)
+            {
+                OnRequest(verb, uri, Headers, payload);
+            }
         }
     }
 }

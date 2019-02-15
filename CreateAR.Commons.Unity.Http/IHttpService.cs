@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using CreateAR.Commons.Unity.Async;
 using CreateAR.Commons.Unity.DataStructures;
 
@@ -16,7 +17,6 @@ namespace CreateAR.Commons.Unity.Http
         Delete
     }
 
-    
     /// <summary>
     /// Defines an HTTP service.
     /// </summary>
@@ -32,6 +32,11 @@ namespace CreateAR.Commons.Unity.Http
         /// </summary>
         Dictionary<string, string> Headers { get; }
 
+        /// <summary>
+        /// Event called when a request is made.
+        /// </summary>
+        event Action<string, string, Dictionary<string, string>, object> OnRequest;
+        
         /// <summary>
         /// Aborts all http requests.
         /// </summary>
