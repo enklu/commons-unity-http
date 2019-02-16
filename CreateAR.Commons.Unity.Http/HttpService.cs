@@ -39,11 +39,14 @@ namespace CreateAR.Commons.Unity.Http
         /// </summary>
         private readonly List<UnityWebRequest> _requestsOut = new List<UnityWebRequest>();
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public UrlFormatterCollection Urls{ get; }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public Dictionary<string, string> Headers { get; }
+
+        /// <inheritdoc />
+        public event Action<string, string, Dictionary<string, string>, object> OnRequest;
 
         /// <summary>
         /// Creates an HttpService.
@@ -66,7 +69,7 @@ namespace CreateAR.Commons.Unity.Http
             Headers = new Dictionary<string, string>();
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public void Abort()
         {
             foreach (var request in _requestsOut)
@@ -77,33 +80,33 @@ namespace CreateAR.Commons.Unity.Http
             _requestsOut.Clear();
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> Get<T>(string url)
         {
             return SendJsonRequest<T>(HttpVerb.Get, url, null);
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> Post<T>(
             string url,
             object payload)
         {
             return SendJsonRequest<T>(HttpVerb.Post, url, payload);
         }
-        
-        /// <inheritdoc cref="IHttpService"/>
+
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> Put<T>(string url, object payload)
         {
             return SendJsonRequest<T>(HttpVerb.Put, url, payload);
         }
-        
-        /// <inheritdoc cref="IHttpService"/>
+
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> Delete<T>(string url)
         {
             return SendJsonRequest<T>(HttpVerb.Delete, url, null);
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> PostFile<T>(
             string url,
             IEnumerable<Tuple<string, string>> fields,
@@ -112,7 +115,7 @@ namespace CreateAR.Commons.Unity.Http
             return SendFile<T>(HttpVerb.Post, url, fields, ref file);
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> PutFile<T>(
             string url,
             IEnumerable<Tuple<string, string>> fields,
@@ -121,9 +124,11 @@ namespace CreateAR.Commons.Unity.Http
             return SendFile<T>(HttpVerb.Put, url, fields, ref file);
         }
 
-        /// <inheritdoc cref="IHttpService"/>
+        /// <inheritdoc />
         public IAsyncToken<HttpResponse<byte[]>> Download(string url)
         {
+            Log("GET", url);
+
             var token = new AsyncToken<HttpResponse<byte[]>>();
 
             var request = UnityWebRequest.Get(url);
@@ -153,6 +158,8 @@ namespace CreateAR.Commons.Unity.Http
             string url,
             object payload)
         {
+            Log(verb.ToString(), url, payload);
+
             var token = new AsyncToken<HttpResponse<T>>();
 
             var request = new UnityWebRequest(
@@ -187,6 +194,8 @@ namespace CreateAR.Commons.Unity.Http
             IEnumerable<Tuple<string, string>> fields,
             ref byte[] file)
         {
+            Log(verb.ToString(), url);
+
             var token = new AsyncToken<HttpResponse<T>>();
 
             var form = new WWWForm();
@@ -387,6 +396,20 @@ namespace CreateAR.Commons.Unity.Http
             }
 
             return tuples;
+        }
+
+        /// <summary>
+        /// Outputs a log, if necessary.
+        /// </summary>
+        /// <param name="verb">The verb.</param>
+        /// <param name="uri">The uri.</param>
+        /// <param name="payload">The payload.</param>
+        private void Log(string verb, string uri, object payload = null)
+        {
+            if (null != OnRequest)
+            {
+                OnRequest(verb, uri, Headers, payload);
+            }
         }
     }
 }
