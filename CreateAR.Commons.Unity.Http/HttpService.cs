@@ -46,6 +46,9 @@ namespace CreateAR.Commons.Unity.Http
         public Dictionary<string, string> Headers { get; }
 
         /// <inheritdoc />
+        public long TimeoutMs { get; set; }
+
+        /// <inheritdoc />
         public event Action<string, string, Dictionary<string, string>, object> OnRequest;
 
         /// <summary>
@@ -65,6 +68,7 @@ namespace CreateAR.Commons.Unity.Http
             _serializer = serializer;
             _bootstrapper = bootstrapper;
 
+            TimeoutMs = 10000;
             Urls = urls;
             Headers = new Dictionary<string, string>();
         }
@@ -282,7 +286,24 @@ namespace CreateAR.Commons.Unity.Http
             AsyncToken<HttpResponse<T>> token,
             SerializationType serialization = SerializationType.Json)
         {
-            yield return request.Send();
+            var start = DateTime.Now;
+
+            request.Send();
+
+            while (!request.isDone)
+            {
+                if (TimeoutMs > 0 && DateTime.Now.Subtract(start).TotalMilliseconds > TimeoutMs)
+                {
+                    // request timed out
+                    request.Dispose();
+
+                    token.Fail(new Exception("Request timed out."));
+
+                    yield break;
+                }
+
+                yield return null;
+            }
 
             var response = new HttpResponse<T>
             {
