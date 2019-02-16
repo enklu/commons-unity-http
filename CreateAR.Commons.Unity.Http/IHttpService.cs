@@ -33,6 +33,11 @@ namespace CreateAR.Commons.Unity.Http
         Dictionary<string, string> Headers { get; }
 
         /// <summary>
+        /// Global timeout. If less than or equal to zero, timeout is disabled.
+        /// </summary>
+        long TimeoutMs { get; set; }
+
+        /// <summary>
         /// Event called when a request is made.
         /// </summary>
         event Action<string, string, Dictionary<string, string>, object> OnRequest;
