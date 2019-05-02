@@ -10,6 +10,11 @@ namespace CreateAR.Commons.Unity.Http
     public class UrlFormatterCollection
     {
         /// <summary>
+        /// Formatter used to parse specific components from urls.
+        /// </summary>
+        private readonly UrlFormatter _parser = new UrlFormatter();
+
+        /// <summary>
         /// Lookup from protocol to formatter.
         /// </summary>
         private readonly Dictionary<string, UrlFormatter> _formatters = new Dictionary<string, UrlFormatter>();
@@ -51,6 +56,68 @@ namespace CreateAR.Commons.Unity.Http
                     Default = _formatters.Keys.FirstOrDefault();
                 }
             }
+        }
+
+        /// <summary>
+        /// Attempts to extract the protocol name from a url. If there is a formatter registered
+        /// for that protocol, then we return the service name. If not, we assume that the
+        /// url may already be resolved and must reverse lookup the service with a matching
+        /// protocol, base url, port.
+        /// </summary>
+        public string FormatterName(string url)
+        {
+            url = RemoveParams(url);
+            var formatterName = ProtocolName(url);
+
+            // Failed to parse protocol name from url
+            if (string.IsNullOrEmpty(formatterName))
+            {
+                return null;
+            }
+
+            // Check name for a formatter. If there's a registered formatter, return the name
+            var formatter = Formatter(formatterName);
+            if (null != formatter)
+            {
+                return formatterName;
+            }
+
+            // Parse url into sub-components. Failure results in no formatter name being resolved.
+            if (!_parser.FromUrl(url))
+            {
+                return null;
+            }
+
+            // Check parsed url against existing formatters
+            var keys = _formatters.Keys.ToList();
+            for (var i = 0; i < keys.Count; ++i)
+            {
+                var key = keys[i];
+                var f = _formatters[key];
+
+                // Formatter has the same protocol, base url, and port. Match
+                if (IsSameBaseFormat(_parser, f))
+                {
+                    return key;
+                }
+            }
+
+            // Failed to resolve the formatter name
+            return null;
+        }
+        
+        /// <summary>
+        /// Extracts the protocol text from the url. 
+        /// </summary>
+        public string ProtocolName(string url)
+        {
+            var index = url.IndexOf("://", StringComparison.Ordinal);
+            if (-1 != index)
+            {
+                return url.Substring(0, index);
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -193,7 +260,7 @@ namespace CreateAR.Commons.Unity.Http
             var index = protocol.IndexOf("://", StringComparison.Ordinal);
             if (-1 != index)
             {
-                protocol = protocol.Substring(index + 3);
+                protocol = protocol.Substring(0, index);
             }
 
             return protocol;
@@ -257,6 +324,30 @@ namespace CreateAR.Commons.Unity.Http
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Removes any URL parameters from a url.
+        /// </summary>
+        private static string RemoveParams(string url)
+        {
+            var index = url.IndexOf('?');
+            if (-1 == index)
+            {
+                return url;
+            }
+
+            return url.Substring(0, index);
+        }
+
+        /// <summary>
+        /// Checks to see if protocol, base url, and port are equal.
+        /// </summary>
+        private static bool IsSameBaseFormat(UrlFormatter f1, UrlFormatter f2)
+        {
+            return string.Equals(f1.Protocol, f2.Protocol)
+                   && string.Equals(f1.BaseUrl, f2.BaseUrl)
+                   && f1.Port == f2.Port;
         }
     }
 }

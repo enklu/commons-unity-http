@@ -30,10 +30,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
         private readonly IBootstrapper _bootstrapper;
 
         /// <inheritdoc />
-        public UrlFormatterCollection Urls { get; private set; }
-
-        /// <inheritdoc />
-        public Dictionary<string, string> Headers { get; private set; }
+        public HttpServiceManager Services { get; }
 
         /// <inheritdoc />
         public long TimeoutMs { get; set; }
@@ -52,8 +49,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
             _serializer = serializer;
             _bootstrapper = bootstrapper;
 
-            Urls = urls;
-            Headers = new Dictionary<string, string>();
+            Services = new HttpServiceManager(urls);
         }
 
         /// <inheritdoc />
@@ -108,7 +104,7 @@ namespace CreateAR.Commons.Unity.Http.Editor
                 url,
                 null);
         }
-
+        
         /// <summary>
         /// Sends a JSON request.
         /// </summary>
@@ -122,7 +118,12 @@ namespace CreateAR.Commons.Unity.Http.Editor
             string url,
             object payload)
         {
-            Log(verb.ToString(), url, payload);
+            var data = Services.ResolveServiceData(url);
+            var service = data.Item1;
+            var resolvedUrl = data.Item2;
+            var headers = data.Item3;
+
+            Log(verb.ToString(), resolvedUrl, service, payload);
 
             var token = new AsyncToken<HttpResponse<T>>();
 
@@ -133,9 +134,9 @@ namespace CreateAR.Commons.Unity.Http.Editor
             }
 
             var request = new WWW(
-                url,
+                resolvedUrl,
                 bytes,
-                HeaderDictionary());
+                HeaderDictionary(headers));
 
             _bootstrapper.BootstrapCoroutine(Wait(request, token));
 
@@ -256,11 +257,11 @@ namespace CreateAR.Commons.Unity.Http.Editor
         /// Creates a dictionary from headers.
         /// </summary>
         /// <returns></returns>
-        private Dictionary<string, string> HeaderDictionary()
+        private Dictionary<string, string> HeaderDictionary(Dictionary<string, string> headers)
         {
             var dictionary = new Dictionary<string, string>();
 
-            foreach (var pair in Headers)
+            foreach (var pair in headers)
             {
                 dictionary[pair.Key] = pair.Value;
             }
@@ -288,11 +289,11 @@ namespace CreateAR.Commons.Unity.Http.Editor
         /// <param name="verb">The verb.</param>
         /// <param name="uri">The uri.</param>
         /// <param name="payload">The payload.</param>
-        private void Log(string verb, string uri, object payload = null)
+        private void Log(string verb, string uri, string service = null, object payload = null)
         {
             if (null != OnRequest)
             {
-                OnRequest(verb, uri, Headers, payload);
+                OnRequest(verb, uri, Services.GetHeaders(service), payload);
             }
         }
     }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 
 namespace CreateAR.Commons.Unity.Http
@@ -67,6 +68,53 @@ namespace CreateAR.Commons.Unity.Http
                 {
                     { "userId", "foo" }
                 }));
+        }
+
+        [Test]
+        public void NormalUrl()
+        {
+            Assert.AreEqual(
+                "http://www.google.com",
+                _formatters.Url("http://www.google.com"));
+        }
+
+        [TestCase("trellis://user/12345/foo", "trellis")]
+        [TestCase("ftp://test/me", "ftp")]
+        [TestCase("helloWorld", null)]
+        public void ParseProtocolName(string url, string expectedResult)
+        {
+            var protoName = _formatters.ProtocolName(url);
+            Assert.AreEqual(expectedResult, protoName);
+        }
+
+        [Test]
+        public void Reverse()
+        {
+            const string TRELLIS_URL = "https://cloud.enklu.com:10001/v1/";
+            const string STARGAZER_URL = "https://cloud.enklu.com:9973/v1/";
+            const string GOOGLE_URL = "http://www.google.com/v3/";
+
+            var formatters = new UrlFormatterCollection();
+            
+            var trellisFormatter = FormatterFor(TRELLIS_URL);
+            var stargazerFormatter = FormatterFor(STARGAZER_URL);
+            var googleFormatter = FormatterFor(GOOGLE_URL);
+            
+            // Register formatters
+            formatters.Register("trellis", trellisFormatter);
+            formatters.Register("stargazer", stargazerFormatter);
+            formatters.Register("google", googleFormatter);
+
+            // Resolve names from specific URLs
+            Assert.AreEqual("stargazer", formatters.FormatterName($"{STARGAZER_URL}users/13423-abcdsa-53214/snaps?type=still"));
+            Assert.AreEqual("trellis", formatters.FormatterName($"{TRELLIS_URL}/foo/man/chu"));
+        }
+
+        private static UrlFormatter FormatterFor(string url)
+        {
+            var urlFormatter = new UrlFormatter();
+            urlFormatter.FromUrl(url);
+            return urlFormatter;
         }
     }
 }
