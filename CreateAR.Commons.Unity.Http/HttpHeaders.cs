@@ -58,7 +58,59 @@ namespace CreateAR.Commons.Unity.Http
 
             _serviceHeaders[service].Set(endpoint, key, value);
         }
-        
+
+        /// <summary>
+        /// Removes the header from any requests made to this endpoint
+        /// </summary>
+        public void Remove(string service, string key)
+        {
+            if (!_serviceHeaders.ContainsKey(service))
+            {
+                return;
+            }
+
+            _serviceHeaders[service].Headers.Remove(key);
+        }
+
+        /// <summary>
+        /// Removes the header from any requests made to this endpoint
+        /// </summary>
+        public void Remove(string service, string endpoint, string key)
+        {
+            if (!_serviceHeaders.ContainsKey(service))
+            {
+                return;
+            }
+
+            _serviceHeaders[service].Remove(endpoint, key);
+        }
+
+        /// <summary>
+        /// Remove all headers from the provided service.
+        /// </summary>
+        public void Clear(string service)
+        {
+            if (!_serviceHeaders.ContainsKey(service))
+            {
+                return;
+            }
+
+            _serviceHeaders[service].Headers.Clear();
+        }
+
+        /// <summary>
+        /// Remove all headers from the service endpoint.
+        /// </summary>
+        public void Clear(string service, string endpoint)
+        {
+            if (!_serviceHeaders.ContainsKey(service))
+            {
+                return;
+            }
+
+            _serviceHeaders[service].Clear(endpoint);
+        }
+
         /// <summary>
         /// Gets the headers used to execute a request.
         /// </summary>
@@ -146,6 +198,32 @@ namespace CreateAR.Commons.Unity.Http
             }
 
             _endpointHeaders[endpoint].Headers[key] = value;
+        }
+
+        /// <summary>
+        /// Removes the header from any requests made to this endpoint
+        /// </summary>
+        public void Remove(string endpoint, string key)
+        {
+            if (!_endpointHeaders.ContainsKey(endpoint))
+            {
+                return;
+            }
+
+            _endpointHeaders[endpoint].Headers.Remove(key);
+        }
+
+        /// <summary>
+        /// Remove all headers from this endpoint.
+        /// </summary>
+        public void Clear(string endpoint)
+        {
+            if (!_endpointHeaders.ContainsKey(endpoint))
+            {
+                return;
+            }
+
+            _endpointHeaders[endpoint].Headers.Clear();
         }
     }
 

@@ -85,6 +85,43 @@ namespace CreateAR.Commons.Unity.Http
         }
 
         /// <summary>
+        /// Removes a header for a specific service.
+        /// </summary>
+        /// <param name="service">The specific service name to remove headers for.</param>
+        /// <param name="key">The header key.</param>
+        public void RemoveHeader(string service, string key)
+        {
+            Headers.Remove(service, key);
+        }
+
+        /// <summary>
+        /// Removes a header for a specific service endpoint. 
+        /// </summary>
+        /// <param name="service">The specific service name to remove headers for.</param>
+        /// <param name="endpoint">The specific endpoint to remove headers for.</param>
+        /// <param name="key">The header key.</param>
+        public void RemoveHeader(string service, string endpoint, string key)
+        {
+            Headers.Remove(service, endpoint, key);
+        }
+
+        /// <summary>
+        /// Clears headers for a specific service.
+        /// </summary>
+        public void ClearHeaders(string service)
+        {
+            Headers.Clear(service);
+        }
+
+        /// <summary>
+        /// Clears headers for a specific service endpoint.
+        /// </summary>
+        public void ClearHeaders(string service, string endpoint)
+        {
+            Headers.Clear(service, endpoint);
+        }
+
+        /// <summary>
         /// Resolves the service name, url, and headers for a specific url.
         /// </summary>
         /// <returns>A tuple containing the service name, resolved url, and headers.</returns>
