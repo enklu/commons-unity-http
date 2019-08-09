@@ -23,14 +23,9 @@ namespace CreateAR.Commons.Unity.Http
     public interface IHttpService
     {
         /// <summary>
-        /// Objects for building Urls.
+        /// Services managed for used with this http service.
         /// </summary>
-        UrlFormatterCollection Urls { get; }
-
-        /// <summary>
-        /// Header information.
-        /// </summary>
-        Dictionary<string, string> Headers { get; }
+        HttpServiceManager Services { get; }
 
         /// <summary>
         /// Global timeout. If less than or equal to zero, timeout is disabled.
@@ -55,7 +50,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <returns>An IAsyncScope to listen to.</returns>
         /// <exception cref="NullReferenceException"></exception>
         IAsyncToken<HttpResponse<T>> Get<T>(string url);
-
+        
         /// <summary>
         /// Sends a POST request to an endpoint.
         /// </summary>

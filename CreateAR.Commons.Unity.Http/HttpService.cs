@@ -38,13 +38,10 @@ namespace CreateAR.Commons.Unity.Http
         /// Requests.
         /// </summary>
         private readonly List<UnityWebRequest> _requestsOut = new List<UnityWebRequest>();
-
-        /// <inheritdoc />
-        public UrlFormatterCollection Urls{ get; }
-
-        /// <inheritdoc />
-        public Dictionary<string, string> Headers { get; }
-
+        
+        /// <inheritdoc/>
+        public HttpServiceManager Services { get; }
+        
         /// <inheritdoc />
         public long TimeoutMs { get; set; }
 
@@ -68,9 +65,8 @@ namespace CreateAR.Commons.Unity.Http
             _serializer = serializer;
             _bootstrapper = bootstrapper;
 
+            Services = new HttpServiceManager(urls);
             TimeoutMs = 10000;
-            Urls = urls;
-            Headers = new Dictionary<string, string>();
         }
 
         /// <inheritdoc />
@@ -131,14 +127,15 @@ namespace CreateAR.Commons.Unity.Http
         /// <inheritdoc />
         public IAsyncToken<HttpResponse<byte[]>> Download(string url)
         {
-            Log("GET", url);
-
             var token = new AsyncToken<HttpResponse<byte[]>>();
 
             var request = UnityWebRequest.Get(url);
             _requestsOut.Add(request);
 
-            ApplyHeaders(Headers, request);
+            var service = Services.Process(request);
+
+            // Log after Processing
+            Log("GET", url, service);
 
             _bootstrapper.BootstrapCoroutine(Wait(
                 request,
@@ -155,6 +152,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="verb">The http verb to use.</param>
         /// <param name="url">The url to send the request to.</param>
         /// <param name="payload">The object that will be serialized into json.</param>
+        /// <param name="service">Optional parameter which uses headers for a specific service instead of defaults.</param>
         /// <returns>An IAsyncToken to listen to.</returns>
         /// <exception cref="NullReferenceException"></exception>
         protected IAsyncToken<HttpResponse<T>> SendJsonRequest<T>(
@@ -162,8 +160,6 @@ namespace CreateAR.Commons.Unity.Http
             string url,
             object payload)
         {
-            Log(verb.ToString(), url, payload);
-
             var token = new AsyncToken<HttpResponse<T>>();
 
             var request = new UnityWebRequest(
@@ -174,10 +170,13 @@ namespace CreateAR.Commons.Unity.Http
                 disposeDownloadHandlerOnDispose = true,
                 disposeUploadHandlerOnDispose = true
             };
-            
-            ApplyHeaders(Headers, request);
+
+            var service = Services.Process(request);
             ApplyJsonPayload(payload, request);
-            
+
+            // Log after Processing
+            Log(verb.ToString(), request.url, service, payload);
+
             _bootstrapper.BootstrapCoroutine(Wait(request, token));
             
             return token;
@@ -191,6 +190,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="url">The url to send the request to.</param>
         /// <param name="fields">Optional fields that will _precede_ the file.</param>
         /// <param name="file">The file, which will be named "file".</param>
+        /// <param name="service">Optional parameter which uses headers for a specific service instead of defaults.</param>
         /// <returns></returns>
         private IAsyncToken<HttpResponse<T>> SendFile<T>(
             HttpVerb verb,
@@ -198,8 +198,6 @@ namespace CreateAR.Commons.Unity.Http
             IEnumerable<Tuple<string, string>> fields,
             ref byte[] file)
         {
-            Log(verb.ToString(), url);
-
             var token = new AsyncToken<HttpResponse<T>>();
 
             var form = new WWWForm();
@@ -220,31 +218,14 @@ namespace CreateAR.Commons.Unity.Http
             request.disposeDownloadHandlerOnDispose = true;
             request.disposeUploadHandlerOnDispose = true;
 
-            ApplyHeaders(Headers, request);
-            
+            var service = Services.Process(request);
+
+            // Log after Processing
+            Log(verb.ToString(), url, service);
+
             _bootstrapper.BootstrapCoroutine(Wait(request, token));
 
             return token;
-        }
-        
-        /// <summary>
-        /// Applies headers to request.
-        /// </summary>
-        /// <param name="headers">Headers to add to request.</param>
-        /// <param name="request">Request to add headers to.</param>
-        protected static void ApplyHeaders(
-            Dictionary<string, string> headers,
-            UnityWebRequest request)
-        {
-            if (headers == null)
-            {
-                return;
-            }
-
-            foreach (var entry in headers)
-            {
-                request.SetRequestHeader(entry.Key, entry.Value);
-            }
         }
 
         /// <summary>
@@ -425,11 +406,11 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="verb">The verb.</param>
         /// <param name="uri">The uri.</param>
         /// <param name="payload">The payload.</param>
-        private void Log(string verb, string uri, object payload = null)
+        private void Log(string verb, string uri, string service, object payload = null)
         {
             if (null != OnRequest)
             {
-                OnRequest(verb, uri, Headers, payload);
+                OnRequest(verb, uri, Services.GetHeaders(service), payload);
             }
         }
     }
