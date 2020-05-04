@@ -121,7 +121,10 @@ namespace CreateAR.Commons.Unity.Http
         /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> PostFile<T>(string url, IEnumerable<Tuple<string, string>> fields, Stream file)
         {
-            throw new NotImplementedException();
+            // Attempt to grab all data. Might not work in every situation.
+            var data = new byte[file.Length];
+            file.Read(data, 0, data.Length);
+            return SendFile<T>(HttpVerb.Post, url, fields, ref data);
         }
 
         /// <inheritdoc />
@@ -138,7 +141,10 @@ namespace CreateAR.Commons.Unity.Http
         /// <inheritdoc />
         public IAsyncToken<HttpResponse<T>> PutFile<T>(string url, IEnumerable<Tuple<string, string>> fields, Stream file)
         {
-            throw new NotImplementedException();
+            // Attempt to grab all data. Might not work in every situation.
+            var data = new byte[file.Length];
+            file.Read(data, 0, data.Length);
+            return SendFile<T>(HttpVerb.Put, url, fields, ref data);
         }
 
         /// <inheritdoc />
