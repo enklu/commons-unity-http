@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using CreateAR.Commons.Unity.Async;
@@ -85,13 +86,25 @@ namespace CreateAR.Commons.Unity.Http.Editor
         }
 
         /// <inheritdoc />
-        public IAsyncToken<HttpResponse<T>> PostFile<T>(string url, IEnumerable<Tuple<string, string>> fields, ref byte[] file)
+        public IAsyncToken<HttpResponse<T>> PostFile<T>(string url, IEnumerable<Tuple<string, string>> fields, ref byte[] file, int offset, int count)
         {
             throw new NotImplementedException();
         }
 
         /// <inheritdoc />
-        public IAsyncToken<HttpResponse<T>> PutFile<T>(string url, IEnumerable<Tuple<string, string>> fields, ref byte[] file)
+        public IAsyncToken<HttpResponse<T>> PostFile<T>(string url, IEnumerable<Tuple<string, string>> fields, Stream file)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc />
+        public IAsyncToken<HttpResponse<T>> PutFile<T>(string url, IEnumerable<Tuple<string, string>> fields, ref byte[] file, int offset, int count)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc />
+        public IAsyncToken<HttpResponse<T>> PutFile<T>(string url, IEnumerable<Tuple<string, string>> fields, Stream file)
         {
             throw new NotImplementedException();
         }
