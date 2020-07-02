@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using CreateAR.Commons.Unity.DataStructures;
+﻿using System;
+using System.Collections.Generic;
 
 namespace CreateAR.Commons.Unity.Http
 {

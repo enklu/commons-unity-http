@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using CreateAR.Commons.Unity.Async;
-using CreateAR.Commons.Unity.DataStructures;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -113,13 +112,18 @@ namespace CreateAR.Commons.Unity.Http
             IEnumerable<Tuple<string, string>> fields,
             ref byte[] file,
             int offset,
-            int count)
+            int count,
+            Action<float> progress = null)
         {
             return SendFile<T>(HttpVerb.Post, url, fields, ref file);
         }
 
         /// <inheritdoc />
-        public IAsyncToken<HttpResponse<T>> PostFile<T>(string url, IEnumerable<Tuple<string, string>> fields, Stream file)
+        public IAsyncToken<HttpResponse<T>> PostFile<T>(
+            string url, 
+            IEnumerable<Tuple<string, string>> fields, 
+            Stream file,
+            Action<float> progress = null)
         {
             // Attempt to grab all data. Might not work in every situation.
             var data = new byte[file.Length];
@@ -133,13 +137,18 @@ namespace CreateAR.Commons.Unity.Http
             IEnumerable<Tuple<string, string>> fields,
             ref byte[] file,
             int offset,
-            int count)
+            int count,
+            Action<float> progressCallback = null)
         {
             return SendFile<T>(HttpVerb.Put, url, fields, ref file);
         }
 
         /// <inheritdoc />
-        public IAsyncToken<HttpResponse<T>> PutFile<T>(string url, IEnumerable<Tuple<string, string>> fields, Stream file)
+        public IAsyncToken<HttpResponse<T>> PutFile<T>(
+            string url, 
+            IEnumerable<Tuple<string, string>> fields, 
+            Stream file,
+            Action<float> progressCallback = null)
         {
             // Attempt to grab all data. Might not work in every situation.
             var data = new byte[file.Length];
@@ -204,7 +213,7 @@ namespace CreateAR.Commons.Unity.Http
             
             return token;
         }
-        
+
         /// <summary>
         /// Sends a file!
         /// </summary>

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using CreateAR.Commons.Unity.Async;
-using CreateAR.Commons.Unity.DataStructures;
 
 namespace CreateAR.Commons.Unity.Http
 {
@@ -95,13 +94,15 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="file">The file, which will be named "file".</param>
         /// <param name="offset">The offset in the byte array.</param>
         /// <param name="count">The number of bytes to write.</param>
+        /// <param name="progressCallback">Optional. Invoked with upload progress on supported platforms.</param>
         /// <returns></returns>
         IAsyncToken<HttpResponse<T>> PostFile<T>(
             string url,
             IEnumerable<Tuple<string, string>> fields,
             ref byte[] file,
             int offset,
-            int count);
+            int count,
+            Action<float> progressCallback = null);
 
         /// <summary>
         /// Sends a file through POST.
@@ -110,11 +111,13 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="url">The url to send the request to.</param>
         /// <param name="fields">Optional fields that will _precede_ the file.</param>
         /// <param name="file">The file, which will be named "file".</param>
+        /// <param name="progressCallback">Optional. Invoked with upload progress on supported platforms.</param>
         /// <returns></returns>
         IAsyncToken<HttpResponse<T>> PostFile<T>(
             string url,
             IEnumerable<Tuple<string, string>> fields,
-            Stream file);
+            Stream file,
+            Action<float> progressCallback = null);
 
         /// <summary>
         /// Sends a file through PUT.
@@ -125,13 +128,15 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="file">The file, which will be named "file".</param>
         /// <param name="offset">The offset in the byte array.</param>
         /// <param name="count">The number of bytes to write.</param>
+        /// <param name="progressCallback">Optional. Invoked with upload progress on supported platforms.</param>
         /// <returns></returns>
         IAsyncToken<HttpResponse<T>> PutFile<T>(
             string url,
             IEnumerable<Tuple<string, string>> fields,
             ref byte[] file,
             int offset,
-            int count);
+            int count,
+            Action<float> progressCallback = null);
 
         /// <summary>
         /// Sends a file through PUT.
@@ -140,11 +145,13 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="url">The url to send the request to.</param>
         /// <param name="fields">Optional fields that will _precede_ the file.</param>
         /// <param name="file">The file, which will be named "file".</param>
+        /// <param name="progressCallback">Optional. Invoked with upload progress on supported platforms.</param>
         /// <returns></returns>
         IAsyncToken<HttpResponse<T>> PutFile<T>(
             string url,
             IEnumerable<Tuple<string, string>> fields,
-            Stream file);
+            Stream file,
+            Action<float> progressCallback = null);
 
         /// <summary>
         /// Downloads raw bytes.
