@@ -4,14 +4,14 @@
     <TargetFramework>net45</TargetFramework>
     <AssemblyName>CreateAR.Commons.Unity.Http</AssemblyName>
     <RootNamespace>CreateAR.Commons.Unity.Http</RootNamespace>
-    <AssemblyVersion>0.13.5</AssemblyVersion>
+    <AssemblyVersion>2021.6.0</AssemblyVersion>
     <Version>0.13.5</Version>
     <Description>For working with HTTP services.</Description>
     <Copyright>Copyright © 2020 Enklu</Copyright>
     <Authors>Enklu</Authors>
     <IncludeSymbols>True</IncludeSymbols>
     <PackageReleaseNotes>Added ProgressHttpContent</PackageReleaseNotes>
-    <FileVersion>0.13.5</FileVersion>
+    <FileVersion>2021.6.0</FileVersion>
     <Company>Enklu</Company>
     <PackageId>CreateAR.Commons.Unity.Http</PackageId>
     <PackageVersion>0.13.5</PackageVersion>

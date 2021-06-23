@@ -17,6 +17,12 @@ namespace CreateAR.Commons.Unity.Http
         Delete
     }
 
+    public enum RequestType
+    {
+        General,
+        Authentication
+    }
+
     /// <summary>
     /// Defines an HTTP service.
     /// </summary>
@@ -36,6 +42,21 @@ namespace CreateAR.Commons.Unity.Http
         /// Event called when a request is made.
         /// </summary>
         event Action<string, string, Dictionary<string, string>, object> OnRequest;
+
+        /// <summary>
+        /// Event called when a request fails authentication.
+        /// </summary>
+        event Action<string> OnAuthenticationFailure;
+
+        /// <summary>
+        /// Notifies the HttpService that auth information was verified externally.
+        /// </summary>
+        void MarkAuthenticationUpdated();
+
+        /// <summary>
+        /// Notifies the HttpService that auth has failed beyond renegotiation means.
+        /// </summary>
+        void MarkAuthenticationFailed();
         
         /// <summary>
         /// Aborts all http requests.
@@ -59,9 +80,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="payload">The resource to send to this endpoint.</param>
         /// <returns>An IAsyncScope to listen to.</returns>
         /// <exception cref="NullReferenceException"></exception>
-        IAsyncToken<HttpResponse<T>> Post<T>(
-            string url,
-            object payload);
+        IAsyncToken<HttpResponse<T>> Post<T>(string url, object payload, RequestType requestType = RequestType.General);
         
         /// <summary>
         /// Sends a PUT request to an endpoint.
@@ -71,9 +90,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="payload">The resource to send to this endpoint.</param>
         /// <returns>An IAsyncScope to listen to.</returns>
         /// <exception cref="NullReferenceException"></exception>
-        IAsyncToken<HttpResponse<T>> Put<T>(
-            string url,
-            object payload);
+        IAsyncToken<HttpResponse<T>> Put<T>(string url, object payload);
         
         /// <summary>
         /// Sends a DELETE request to an endpoint.
@@ -82,8 +99,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="url">The URL to hit.</param>
         /// <returns>An IAsyncScope to listen to.</returns>
         /// <exception cref="NullReferenceException"></exception>
-        IAsyncToken<HttpResponse<T>> Delete<T>(
-            string url);
+        IAsyncToken<HttpResponse<T>> Delete<T>(string url);
 
         /// <summary>
         /// Sends a file through POST.
