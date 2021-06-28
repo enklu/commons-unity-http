@@ -53,7 +53,7 @@ namespace CreateAR.Commons.Unity.Http
             /// <summary>
             /// Underlying Unity request.
             /// </summary>
-            public UnityWebRequest Request;
+            public Func<UnityWebRequest> RequestBuilder;
             
             /// <summary>
             /// The response payload's type.
@@ -140,7 +140,7 @@ namespace CreateAR.Commons.Unity.Http
             for (int i = 0, len = scratch.Count; i < len; i++)
             {
                 var record = scratch[i];
-                _bootstrapper.BootstrapCoroutine(Wait(record.Request, record.Type, record.Token, record.Serialization));
+                _bootstrapper.BootstrapCoroutine(Wait(record.RequestBuilder, record.Type, record.Token, record.Serialization));
             }
         }
 
@@ -248,16 +248,20 @@ namespace CreateAR.Commons.Unity.Http
         {
             var token = new AsyncToken<HttpResponseTypeless>();
 
-            var request = UnityWebRequest.Get(url);
-            _requestsOut.Add(request);
+            UnityWebRequest BuildRequest()
+            {
+                var request = UnityWebRequest.Get(url);
+                var service = Services.Process(request);
+                
+                // Log after Processing
+                Log("GET", url, service);
+                _requestsOut.Add(request);
 
-            var service = Services.Process(request);
-
-            // Log after Processing
-            Log("GET", url, service);
-
+                return request;
+            }
+            
             _bootstrapper.BootstrapCoroutine(Wait(
-                request,
+                BuildRequest,
                 typeof(byte[]),
                 token,
                 SerializationType.Raw));
@@ -283,22 +287,27 @@ namespace CreateAR.Commons.Unity.Http
         {
             var token = new AsyncToken<HttpResponseTypeless>();
 
-            var request = new UnityWebRequest(
-                url,
-                verb.ToString().ToUpperInvariant())
+            UnityWebRequest BuildRequest()
             {
-                downloadHandler = new DownloadHandlerBuffer(),
-                disposeDownloadHandlerOnDispose = true,
-                disposeUploadHandlerOnDispose = true
-            };
+                var request = new UnityWebRequest(
+                    url,
+                    verb.ToString().ToUpperInvariant())
+                {
+                    downloadHandler = new DownloadHandlerBuffer(),
+                    disposeDownloadHandlerOnDispose = true,
+                    disposeUploadHandlerOnDispose = true
+                };
 
-            var service = Services.Process(request);
-            ApplyJsonPayload(payload, request);
+                var service = Services.Process(request);
+                ApplyJsonPayload(payload, request);
 
-            // Log after Processing
-            Log(verb.ToString(), request.url, service, payload);
+                // Log after Processing
+                Log(verb.ToString(), request.url, service, payload);
 
-            _bootstrapper.BootstrapCoroutine(Wait(request, typeof(T), token, SerializationType.Json, requestType));
+                return request;
+            }
+            
+            _bootstrapper.BootstrapCoroutine(Wait(BuildRequest, typeof(T), token, SerializationType.Json, requestType));
             
             return GenerateTypedToken<T>(token);
         }
@@ -330,21 +339,26 @@ namespace CreateAR.Commons.Unity.Http
 
             form.AddBinaryData("file", file);
 
-            var request = UnityWebRequest.Post(
-                url,
-                form);
-            request.method = verb.ToString().ToUpperInvariant();
-            request.useHttpContinue = false;
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.disposeDownloadHandlerOnDispose = true;
-            request.disposeUploadHandlerOnDispose = true;
+            UnityWebRequest BuildRequest()
+            {
+                var request = UnityWebRequest.Post(
+                    url,
+                    form);
+                request.method = verb.ToString().ToUpperInvariant();
+                request.useHttpContinue = false;
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.disposeDownloadHandlerOnDispose = true;
+                request.disposeUploadHandlerOnDispose = true;
 
-            var service = Services.Process(request);
+                var service = Services.Process(request);
 
-            // Log after Processing
-            Log(verb.ToString(), url, service);
+                // Log after Processing
+                Log(verb.ToString(), url, service);
 
-            _bootstrapper.BootstrapCoroutine(Wait(request, typeof(T), token));
+                return request;
+            }
+            
+            _bootstrapper.BootstrapCoroutine(Wait(BuildRequest, typeof(T), token));
 
             return GenerateTypedToken<T>(token);
         }
@@ -385,7 +399,7 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="serialization"></param>
         /// <returns>The coroutines IEnumerator.</returns>
         protected IEnumerator Wait(
-            UnityWebRequest request,
+            Func<UnityWebRequest> requestBuilder,
             Type type,
             AsyncToken<HttpResponseTypeless> token,
             SerializationType serialization = SerializationType.Json,
@@ -396,7 +410,7 @@ namespace CreateAR.Commons.Unity.Http
             {
                 _authFailureQueue.Add(new RequestPoolRecord
                 {
-                    Request = request,
+                    RequestBuilder = requestBuilder,
                     Token = token,
                     Type = type,
                     Serialization = serialization
@@ -405,7 +419,7 @@ namespace CreateAR.Commons.Unity.Http
             }
             
             var start = DateTime.Now;
-
+            var request = requestBuilder();
             request.SendWebRequest();
 
             while (!request.isDone)
@@ -417,7 +431,7 @@ namespace CreateAR.Commons.Unity.Http
                     {
                         _authFailureQueue.Add(new RequestPoolRecord
                         {
-                            Request = request,
+                            RequestBuilder = requestBuilder,
                             Token = token,
                             Type = type,
                             Serialization = serialization
@@ -441,7 +455,7 @@ namespace CreateAR.Commons.Unity.Http
             {
                 _authFailureQueue.Add(new RequestPoolRecord
                 {
-                    Request = request,
+                    RequestBuilder = requestBuilder,
                     Token = token,
                     Type = type,
                     Serialization = serialization
@@ -456,7 +470,7 @@ namespace CreateAR.Commons.Unity.Http
                 _authStance = AuthStance.RenegotiationRequired;
                 _authFailureQueue.Add(new RequestPoolRecord
                 {
-                    Request = request,
+                    RequestBuilder = requestBuilder,
                     Token = token,
                     Type = type,
                     Serialization = serialization
