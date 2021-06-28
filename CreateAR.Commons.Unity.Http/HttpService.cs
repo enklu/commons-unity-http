@@ -45,11 +45,29 @@ namespace CreateAR.Commons.Unity.Http
             Failed
         }
 
+        /// <summary>
+        /// A stored request to be handled later.
+        /// </summary>
         protected struct RequestPoolRecord
         {
+            /// <summary>
+            /// Underlying Unity request.
+            /// </summary>
             public UnityWebRequest Request;
+            
+            /// <summary>
+            /// The response payload's type.
+            /// </summary>
             public Type Type;
+            
+            /// <summary>
+            /// The token to succeed/fail at renegotiation.
+            /// </summary>
             public AsyncToken<HttpResponseTypeless> Token;
+            
+            /// <summary>
+            /// The response serializtion type.
+            /// </summary>
             public SerializationType Serialization;
         }
 
@@ -576,6 +594,9 @@ namespace CreateAR.Commons.Unity.Http
             }
         }
 
+        /// <summary>
+        /// Generates a HttpResponse<T> token from a Typeless token.
+        /// </summary>
         private AsyncToken<HttpResponse<T>> GenerateTypedToken<T>(IAsyncToken<HttpResponseTypeless> httpToken)
         {
             var rtnToken = new AsyncToken<HttpResponse<T>>();
