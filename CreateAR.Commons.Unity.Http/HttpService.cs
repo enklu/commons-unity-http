@@ -13,6 +13,11 @@ namespace CreateAR.Commons.Unity.Http
     /// </summary>
     public class HttpService : IHttpService
     {
+        /// <summary>
+        /// Specifies content types.
+        /// </summary>
+        private const string CONTENT_TYPE_JSON = "application/json";
+        
         protected enum SerializationType
         {
             Json,
@@ -20,9 +25,51 @@ namespace CreateAR.Commons.Unity.Http
         }
 
         /// <summary>
-        /// Specifies content types.
+        /// Authentication is handled externally through headers, so the HttpService has to operate on a vague stance.
         /// </summary>
-        private const string CONTENT_TYPE_JSON = "application/json";
+        protected enum AuthStance
+        {
+            /// <summary>
+            /// Assumes everything is valid, requests pass through with no problems. Auth issues trigger a stance change.
+            /// </summary>
+            AssumeConfigured,
+            
+            /// <summary>
+            /// Updated auth is required. Non authentication typed requests are pooled until stance is changed.
+            /// </summary>
+            RenegotiationRequired,
+            
+            /// <summary>
+            /// Auth has failed, with no chance of renegotiation. Requests aren't pooled, and auth issues fail without triggering a stance change.
+            /// </summary>
+            Failed
+        }
+
+        /// <summary>
+        /// A stored request to be handled later.
+        /// </summary>
+        protected struct RequestPoolRecord
+        {
+            /// <summary>
+            /// Underlying Unity request.
+            /// </summary>
+            public Func<UnityWebRequest> RequestBuilder;
+            
+            /// <summary>
+            /// The response payload's type.
+            /// </summary>
+            public Type Type;
+            
+            /// <summary>
+            /// The token to succeed/fail at renegotiation.
+            /// </summary>
+            public AsyncToken<HttpResponseTypeless> Token;
+            
+            /// <summary>
+            /// The response serializtion type.
+            /// </summary>
+            public SerializationType Serialization;
+        }
 
         /// <summary>
         /// Serializer!
@@ -38,6 +85,16 @@ namespace CreateAR.Commons.Unity.Http
         /// Requests.
         /// </summary>
         private readonly List<UnityWebRequest> _requestsOut = new List<UnityWebRequest>();
+
+        /// <summary>
+        /// Queue of would-fail requests while auth renegotiation is occuring.
+        /// </summary>
+        private readonly List<RequestPoolRecord> _authFailureQueue = new List<RequestPoolRecord>();
+
+        /// <summary>
+        /// Current auth stance.
+        /// </summary>
+        private AuthStance _authStance = AuthStance.AssumeConfigured;
         
         /// <inheritdoc/>
         public HttpServiceManager Services { get; }
@@ -47,6 +104,9 @@ namespace CreateAR.Commons.Unity.Http
 
         /// <inheritdoc />
         public event Action<string, string, Dictionary<string, string>, object> OnRequest;
+
+        /// <inheritdoc />
+        public event Action<string> OnAuthenticationFailure;
 
         /// <summary>
         /// Creates an HttpService.
@@ -70,6 +130,35 @@ namespace CreateAR.Commons.Unity.Http
         }
 
         /// <inheritdoc />
+        public void MarkAuthenticationUpdated()
+        {
+            _authStance = AuthStance.AssumeConfigured;
+            
+            // Push pooled calls back through the pipeline.
+            var scratch = new List<RequestPoolRecord>(_authFailureQueue);
+            _authFailureQueue.Clear();
+            for (int i = 0, len = scratch.Count; i < len; i++)
+            {
+                var record = scratch[i];
+                _bootstrapper.BootstrapCoroutine(Wait(record.RequestBuilder, record.Type, record.Token, record.Serialization));
+            }
+        }
+
+        /// <inheritdoc />
+        public void MarkAuthenticationFailed()
+        {
+            _authStance = AuthStance.Failed;   
+            
+            // Fail existing queue.
+            var scratch = new List<RequestPoolRecord>(_authFailureQueue);
+            _authFailureQueue.Clear();
+            for (int i = 0, len = scratch.Count; i < len; i++)
+            {
+                scratch[i].Token.Fail(new Exception("Unauthorized."));
+            }
+        }
+
+        /// <inheritdoc />
         public void Abort()
         {
             foreach (var request in _requestsOut)
@@ -87,11 +176,9 @@ namespace CreateAR.Commons.Unity.Http
         }
 
         /// <inheritdoc />
-        public IAsyncToken<HttpResponse<T>> Post<T>(
-            string url,
-            object payload)
+        public IAsyncToken<HttpResponse<T>> Post<T>(string url, object payload, RequestType type = RequestType.General)
         {
-            return SendJsonRequest<T>(HttpVerb.Post, url, payload);
+            return SendJsonRequest<T>(HttpVerb.Post, url, payload, type);
         }
 
         /// <inheritdoc />
@@ -159,22 +246,27 @@ namespace CreateAR.Commons.Unity.Http
         /// <inheritdoc />
         public IAsyncToken<HttpResponse<byte[]>> Download(string url)
         {
-            var token = new AsyncToken<HttpResponse<byte[]>>();
+            var token = new AsyncToken<HttpResponseTypeless>();
 
-            var request = UnityWebRequest.Get(url);
-            _requestsOut.Add(request);
+            UnityWebRequest BuildRequest()
+            {
+                var request = UnityWebRequest.Get(url);
+                var service = Services.Process(request);
+                
+                // Log after Processing
+                Log("GET", url, service);
+                _requestsOut.Add(request);
 
-            var service = Services.Process(request);
-
-            // Log after Processing
-            Log("GET", url, service);
-
+                return request;
+            }
+            
             _bootstrapper.BootstrapCoroutine(Wait(
-                request,
+                BuildRequest,
+                typeof(byte[]),
                 token,
                 SerializationType.Raw));
 
-            return token;
+            return GenerateTypedToken<byte[]>(token);
         }
 
         /// <summary>
@@ -190,28 +282,34 @@ namespace CreateAR.Commons.Unity.Http
         protected IAsyncToken<HttpResponse<T>> SendJsonRequest<T>(
             HttpVerb verb,
             string url,
-            object payload)
+            object payload,
+            RequestType requestType = RequestType.General)
         {
-            var token = new AsyncToken<HttpResponse<T>>();
+            var token = new AsyncToken<HttpResponseTypeless>();
 
-            var request = new UnityWebRequest(
-                url,
-                verb.ToString().ToUpperInvariant())
+            UnityWebRequest BuildRequest()
             {
-                downloadHandler = new DownloadHandlerBuffer(),
-                disposeDownloadHandlerOnDispose = true,
-                disposeUploadHandlerOnDispose = true
-            };
+                var request = new UnityWebRequest(
+                    url,
+                    verb.ToString().ToUpperInvariant())
+                {
+                    downloadHandler = new DownloadHandlerBuffer(),
+                    disposeDownloadHandlerOnDispose = true,
+                    disposeUploadHandlerOnDispose = true
+                };
 
-            var service = Services.Process(request);
-            ApplyJsonPayload(payload, request);
+                var service = Services.Process(request);
+                ApplyJsonPayload(payload, request);
 
-            // Log after Processing
-            Log(verb.ToString(), request.url, service, payload);
+                // Log after Processing
+                Log(verb.ToString(), request.url, service, payload);
 
-            _bootstrapper.BootstrapCoroutine(Wait(request, token));
+                return request;
+            }
             
-            return token;
+            _bootstrapper.BootstrapCoroutine(Wait(BuildRequest, typeof(T), token, SerializationType.Json, requestType));
+            
+            return GenerateTypedToken<T>(token);
         }
 
         /// <summary>
@@ -230,7 +328,7 @@ namespace CreateAR.Commons.Unity.Http
             IEnumerable<Tuple<string, string>> fields,
             ref byte[] file)
         {
-            var token = new AsyncToken<HttpResponse<T>>();
+            var token = new AsyncToken<HttpResponseTypeless>();
 
             var form = new WWWForm();
 
@@ -241,23 +339,28 @@ namespace CreateAR.Commons.Unity.Http
 
             form.AddBinaryData("file", file);
 
-            var request = UnityWebRequest.Post(
-                url,
-                form);
-            request.method = verb.ToString().ToUpperInvariant();
-            request.useHttpContinue = false;
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.disposeDownloadHandlerOnDispose = true;
-            request.disposeUploadHandlerOnDispose = true;
+            UnityWebRequest BuildRequest()
+            {
+                var request = UnityWebRequest.Post(
+                    url,
+                    form);
+                request.method = verb.ToString().ToUpperInvariant();
+                request.useHttpContinue = false;
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.disposeDownloadHandlerOnDispose = true;
+                request.disposeUploadHandlerOnDispose = true;
 
-            var service = Services.Process(request);
+                var service = Services.Process(request);
 
-            // Log after Processing
-            Log(verb.ToString(), url, service);
+                // Log after Processing
+                Log(verb.ToString(), url, service);
 
-            _bootstrapper.BootstrapCoroutine(Wait(request, token));
+                return request;
+            }
+            
+            _bootstrapper.BootstrapCoroutine(Wait(BuildRequest, typeof(T), token));
 
-            return token;
+            return GenerateTypedToken<T>(token);
         }
 
         /// <summary>
@@ -291,22 +394,51 @@ namespace CreateAR.Commons.Unity.Http
         /// </summary>
         /// <typeparam name="T">The type to deserialize the response to.</typeparam>
         /// <param name="request">The UnityWebRequest to send and wait on.</param>
+        /// <param name="type">The type expected of the payload.</param>
         /// <param name="token">The token to resolve.</param>
         /// <param name="serialization"></param>
         /// <returns>The coroutines IEnumerator.</returns>
-        protected IEnumerator Wait<T>(
-            UnityWebRequest request,
-            AsyncToken<HttpResponse<T>> token,
-            SerializationType serialization = SerializationType.Json)
+        protected IEnumerator Wait(
+            Func<UnityWebRequest> requestBuilder,
+            Type type,
+            AsyncToken<HttpResponseTypeless> token,
+            SerializationType serialization = SerializationType.Json,
+            RequestType requestType = RequestType.General)
         {
+            // Queue requests while an auth failure is on-going.
+            if (_authStance == AuthStance.RenegotiationRequired && requestType != RequestType.Authentication)
+            {
+                _authFailureQueue.Add(new RequestPoolRecord
+                {
+                    RequestBuilder = requestBuilder,
+                    Token = token,
+                    Type = type,
+                    Serialization = serialization
+                });
+                yield break;
+            }
+            
             var start = DateTime.Now;
-
-            request.Send();
+            var request = requestBuilder();
+            request.SendWebRequest();
 
             while (!request.isDone)
             {
                 if (TimeoutMs > 0 && DateTime.Now.Subtract(start).TotalMilliseconds > TimeoutMs)
                 {
+                    // Handles cases where a request is outbound while auth fails.
+                    if (_authStance == AuthStance.RenegotiationRequired && requestType != RequestType.Authentication)
+                    {
+                        _authFailureQueue.Add(new RequestPoolRecord
+                        {
+                            RequestBuilder = requestBuilder,
+                            Token = token,
+                            Type = type,
+                            Serialization = serialization
+                        });
+                        yield break;
+                    }
+                    
                     // request timed out
                     request.Dispose();
 
@@ -318,9 +450,39 @@ namespace CreateAR.Commons.Unity.Http
                 yield return null;
             }
 
-            var response = new HttpResponse<T>
+            // Race condition for multiple in-flight requests resolving while a failure first occurs.
+            if (_authStance == AuthStance.RenegotiationRequired && requestType != RequestType.Authentication)
+            {
+                _authFailureQueue.Add(new RequestPoolRecord
+                {
+                    RequestBuilder = requestBuilder,
+                    Token = token,
+                    Type = type,
+                    Serialization = serialization
+                });
+                    
+                yield break;
+            }
+            
+            // Auth failure? Start future request pooling.
+            if (_authStance == AuthStance.AssumeConfigured && request.responseCode == 403)
+            {
+                _authStance = AuthStance.RenegotiationRequired;
+                _authFailureQueue.Add(new RequestPoolRecord
+                {
+                    RequestBuilder = requestBuilder,
+                    Token = token,
+                    Type = type,
+                    Serialization = serialization
+                });
+                OnAuthenticationFailure?.Invoke(request.error);
+                yield break;
+            }
+
+            var response = new HttpResponseTypeless
             {
                 Headers = FormatHeaders(request.GetResponseHeaders()),
+                Type = type,
                 StatusCode = request.responseCode
             };
             
@@ -347,9 +509,9 @@ namespace CreateAR.Commons.Unity.Http
         /// <param name="request">The request to inspect.</param>
         /// <param name="response">The response object.</param>
         /// <param name="serialization">Describes how to serialize.</param>
-        protected void ProcessResponse<T>(
+        protected void ProcessResponse(
             UnityWebRequest request,
-            HttpResponse<T> response,
+            HttpResponseTypeless response,
             SerializationType serialization)
         {
             if (request.isNetworkError)
@@ -367,7 +529,7 @@ namespace CreateAR.Commons.Unity.Http
                     {
                         case SerializationType.Json:
                         {
-                            _serializer.Deserialize(typeof(T), ref bytes, out value);
+                            _serializer.Deserialize(response.Type, ref bytes, out value);
                             break;
                         }
                         default:
@@ -377,7 +539,7 @@ namespace CreateAR.Commons.Unity.Http
                         }
                     }
                     
-                    response.Payload = (T) value;
+                    response.Payload = value;
 
                     if (Successful(request))
                     {
@@ -444,6 +606,25 @@ namespace CreateAR.Commons.Unity.Http
             {
                 OnRequest(verb, uri, Services.GetHeaders(service), payload);
             }
+        }
+
+        /// <summary>
+        /// Generates a HttpResponse<T> token from a Typeless token.
+        /// </summary>
+        private AsyncToken<HttpResponse<T>> GenerateTypedToken<T>(IAsyncToken<HttpResponseTypeless> httpToken)
+        {
+            var rtnToken = new AsyncToken<HttpResponse<T>>();
+            httpToken.OnFailure(rtnToken.Fail);
+            httpToken.OnSuccess(response => rtnToken.Succeed(new HttpResponse<T>
+            {
+                Payload = (T) response.Payload,
+                Raw = response.Raw,
+                Headers = response.Headers,
+                StatusCode = response.StatusCode,
+                NetworkSuccess = response.NetworkSuccess,
+                NetworkError = response.NetworkError
+            }));
+            return rtnToken;
         }
     }
 }
